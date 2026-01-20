@@ -1165,3 +1165,16 @@ export ENABLE_AVAILABILITY_ZONES=true
 export USE_PREMIUM_V2_DISKS=true
 
 ./private_vms_deploy.sh "8d6bd1eb-ae31-4f2c-856a-0f8e47115c4b" apply 3 3000 125 Standard_D8ls_v6 "" kafka-t2 westus3
+
+export USE_EXISTING_KAFKA_NETWORK=true
+export EXISTING_KAFKA_VNET_RESOURCE_GROUP_NAME="kafka-t2"
+export KAFKA_VNET_NAME="vnet-t2"
+export KAFKA_SUBNET_NAME="default"
+export ENABLE_KAFKA_NAT_GATEWAY=false
+export KAFKA_NSG_ID="/subscriptions/8d6bd1eb-ae31-4f2c-856a-0f8e47115c4b/resourceGroups/kafka-t2/providers/Microsoft.Network/networkSecurityGroups/control-nsg"
+export ENABLE_VNET_PEERING=false
+export KAFKA_VM_ZONE="1"
+export ENABLE_AVAILABILITY_ZONES=true
+export USE_PREMIUM_V2_DISKS=true
+
+./private_vms_deploy.sh "8d6bd1eb-ae31-4f2c-856a-0f8e47115c4b" destroy 3 3000 125 Standard_D8ls_v6 "" kafka-t2 westus3
