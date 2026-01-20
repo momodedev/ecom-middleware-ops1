@@ -90,3 +90,4 @@ if [ "$2" = "plan" ]; then
 else
     terraform $2 -var-file='sub_id.tfvars' -auto-approve
 fi
+
