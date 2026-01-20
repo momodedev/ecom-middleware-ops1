@@ -1,0 +1,313 @@
+---
+# Kafka Cluster Maintenance Playbook - Start/Stop/Restart
+# Provides ordered startup and graceful shutdown of Kafka clusters
+
+- name: Kafka Cluster Maintenance Operations
+  hosts: kafka
+  gather_facts: yes
+  
+  vars:
+    # Control the operation: start, stop, restart, health-check
+    operation: "{{ kafka_operation | default('health-check') }}"
+    graceful_timeout: 30
+    health_check_timeout: 60
+
+  tasks:
+    # =====================================================================
+    # STARTUP OPERATIONS
+    # =====================================================================
+
+    - name: Start Kafka Broker
+      block:
+        - name: Check if Kafka service is already running
+          systemd:
+            name: kafka.service
+          register: kafka_service_status
+
+        - name: Start Kafka broker service
+          systemd:
+            name: kafka.service
+            state: started
+            enabled: yes
+            daemon_reload: yes
+          when: kafka_service_status.status.ActiveState != "active"
+
+        - name: Wait for Kafka broker to be ready
+          wait_for:
+            port: 9092
+            delay: 5
+            timeout: "{{ health_check_timeout }}"
+
+        - name: Start kafka_exporter
+          systemd:
+            name: kafka_exporter.service
+            state: started
+            enabled: yes
+            daemon_reload: no
+          ignore_errors: yes
+
+        - name: Verify broker is accepting connections
+          shell: |
+            set -o pipefail
+            /opt/kafka/bin/kafka-broker-api-versions.sh --bootstrap-server localhost:9092 2>&1 | head -5
+          become: yes
+          become_user: kafka
+          register: broker_api
+          retries: 3
+          delay: 5
+          ignore_errors: yes
+
+        - name: Display broker API response
+          debug:
+            var: broker_api.stdout_lines
+          when: broker_api.rc == 0
+
+      when: operation in ['start', 'restart']
+
+    # =====================================================================
+    # SHUTDOWN OPERATIONS (Graceful)
+    # =====================================================================
+
+    - name: Stop Kafka Broker (Graceful)
+      block:
+        - name: Stop accepting new requests (disable writes)
+          shell: |
+            kill -TERM $(pgrep -f kafka.Kafka) || true
+          become: yes
+          register: stop_signal
+          ignore_errors: yes
+
+        - name: Wait for graceful shutdown to complete
+          wait_for:
+            port: 9092
+            state: stopped
+            delay: 2
+            timeout: "{{ graceful_timeout }}"
+          ignore_errors: yes
+
+        - name: Force stop if still running
+          systemd:
+            name: kafka.service
+            state: stopped
+          ignore_errors: yes
+
+        - name: Stop kafka_exporter
+          systemd:
+            name: kafka_exporter.service
+            state: stopped
+          ignore_errors: yes
+
+        - name: Ensure Kafka is stopped
+          wait_for:
+            port: 9092
+            state: stopped
+            delay: 1
+            timeout: 10
+          ignore_errors: yes
+
+      when: operation == 'stop'
+
+    # =====================================================================
+    # HEALTH CHECK & VALIDATION
+    # =====================================================================
+
+    - name: Check Kafka Broker Health
+      block:
+        - name: Check if Kafka service is running
+          systemd:
+            name: kafka.service
+          register: kafka_service
+
+        - name: Check broker port accessibility
+          wait_for:
+            port: 9092
+            delay: 1
+            timeout: 5
+          register: port_check
+          ignore_errors: yes
+
+        - name: Get broker API versions (connectivity check)
+          shell: |
+            set -o pipefail
+            /opt/kafka/bin/kafka-broker-api-versions.sh --bootstrap-server localhost:9092 2>&1 | grep -E "ApiVersion|Error" | head -3
+          become: yes
+          become_user: kafka
+          register: broker_health
+          ignore_errors: yes
+
+        - name: Check Kafka logs for errors
+          command: |
+            tail -20 {{ services_logs_dir }}/server.log | grep -E "ERROR|FATAL" || echo "No errors"
+          become: yes
+          become_user: kafka
+          register: log_check
+          ignore_errors: yes
+
+        - name: Get broker configuration
+          command: |
+            cat {{ kafka_workspace }}/config/server.properties | grep -E "^(node.id|listeners|advertised.listeners|log.dirs)" || true
+          register: broker_config
+
+        - name: Display Kafka Health Status
+          debug:
+            msg: |
+              Kafka Broker Health Report for {{ inventory_hostname }}
+              ===================================================
+              Service Status: {{ kafka_service.status.ActiveState }}
+              Port 9092 Accessible: {{ port_check is succeeded }}
+              
+              API Check:
+              {{ broker_health.stdout }}
+              
+              Recent Errors:
+              {{ log_check.stdout }}
+              
+              Broker Config:
+              {{ broker_config.stdout }}
+
+      when: operation == 'health-check'
+
+    # =====================================================================
+    # RESTART OPERATIONS
+    # =====================================================================
+
+    - name: Restart Kafka Broker
+      block:
+        - name: Stop broker gracefully
+          systemd:
+            name: kafka.service
+            state: stopped
+          ignore_errors: yes
+
+        - name: Wait for broker to be fully stopped
+          wait_for:
+            port: 9092
+            state: stopped
+            delay: 1
+            timeout: 15
+          ignore_errors: yes
+
+        - name: Start broker again
+          systemd:
+            name: kafka.service
+            state: started
+            enabled: yes
+
+        - name: Wait for broker to be ready
+          wait_for:
+            port: 9092
+            delay: 5
+            timeout: "{{ health_check_timeout }}"
+
+        - name: Verify broker health after restart
+          shell: |
+            set -o pipefail
+            /opt/kafka/bin/kafka-broker-api-versions.sh --bootstrap-server localhost:9092 2>&1 | head -3
+          become: yes
+          become_user: kafka
+          register: restart_check
+          retries: 3
+          delay: 5
+
+        - name: Display restart status
+          debug:
+            msg: "✅ Kafka broker {{ inventory_hostname }} restarted successfully"
+
+      when: operation == 'restart'
+
+    # =====================================================================
+    # EXPORTER MANAGEMENT
+    # =====================================================================
+
+    - name: Start Exporter
+      systemd:
+        name: kafka_exporter.service
+        state: started
+        enabled: yes
+      ignore_errors: yes
+      when: operation in ['start', 'restart']
+
+    - name: Stop Exporter
+      systemd:
+        name: kafka_exporter.service
+        state: stopped
+      ignore_errors: yes
+      when: operation == 'stop'
+
+    - name: Check Exporter Health
+      block:
+        - name: Exporter service status
+          systemd:
+            name: kafka_exporter.service
+          register: exporter_status
+
+        - name: Check exporter port
+          wait_for:
+            port: 9308
+            delay: 1
+            timeout: 5
+          register: exporter_port
+          ignore_errors: yes
+
+        - name: Display exporter status
+          debug:
+            msg: |
+              Kafka Exporter Status:
+              Service: {{ exporter_status.status.ActiveState }}
+              Port 9308: {{ 'Accessible' if exporter_port is succeeded else 'Not accessible' }}
+
+      when: operation == 'health-check'
+
+  # =====================================================================
+  # POST-OPERATION SUMMARY
+  # =====================================================================
+
+  post_tasks:
+    - name: Log operation result
+      copy:
+        content: |
+          Kafka Maintenance Operation Summary
+          ====================================
+          Operation: {{ operation | default('unknown') }}
+          Timestamp: {{ ansible_date_time.iso8601 }}
+          Host: {{ inventory_hostname }}
+          Status: Completed
+        dest: "{{ services_logs_dir | default('/var/log/kafka') }}/maintenance_{{ operation | default('unknown') }}_{{ ansible_date_time.iso8601_basic }}.log"
+      become: yes
+      become_user: kafka
+      ignore_errors: yes
+
+# =========================================================================
+# MONITORING INTEGRATION - Update Prometheus Targets if needed
+# =========================================================================
+
+- name: Validate Cluster State (Run on Monitor)
+  hosts: "{{ groups['monitoring'][0] | default('localhost') }}"
+  connection: local
+  gather_facts: no
+  
+  tasks:
+    - name: Health check for all brokers
+      block:
+        - name: Get list of all brokers
+          set_fact:
+            all_brokers: "{{ groups['kafka'] }}"
+
+        - name: Check each broker health
+          uri:
+            url: "http://{{ item }}:9308/metrics"
+            method: GET
+            timeout: 5
+          loop: "{{ all_brokers }}"
+          register: broker_metrics
+          ignore_errors: yes
+
+        - name: Display metric availability
+          debug:
+            msg: |
+              Broker Metrics Status:
+              {% for result in broker_metrics.results %}
+              - {{ result.item }}: {{ 'OK' if result is succeeded else 'FAILED' }}
+              {% endfor %}
+
+      when: operation | default('health-check') in ['start', 'restart', 'health-check']

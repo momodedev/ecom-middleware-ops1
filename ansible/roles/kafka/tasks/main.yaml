@@ -1,0 +1,290 @@
+---
+# ==================== SETENV TASKS (Setup Environment) ====================
+# Install required packages
+- name: Install required packages
+  package:
+    name:
+      - java-17-openjdk
+      - net-tools
+      - tar
+    state: present
+
+- name: Create kafka group
+  group:
+    name: kafka
+    state: present
+
+- name: Create kafka user
+  user:
+    name: kafka
+    group: kafka
+
+- name: Collect service facts
+  service_facts:
+
+# Disable firewalld (ports 9092/9093/9094/9308/9100 need to be reachable)
+- name: Disable firewalld when present
+  service:
+    name: firewalld
+    state: stopped
+    enabled: no
+  when: "'firewalld.service' in ansible_facts.services"
+  become: yes
+
+- name: Check kafka directory
+  stat:
+    path: "{{ kafka_workspace }}"
+  register: directory_check
+
+- name: Download and unpack kafka
+  unarchive:
+    src: "{{ kafka_url }}"
+    dest: "{{ kafka_home }}"
+    owner: kafka
+    group: kafka
+    creates: "{{ kafka_workspace }}"
+    mode: 0755
+    remote_src: yes
+  
+- name: Find kafka folder
+  find: 
+    paths: "{{ kafka_home }}"
+    pattern: "kafka_*"
+    file_type: directory
+  register: directory_name
+
+- name: Rename kafka folder
+  shell: "mv {{ directory_name.files[0].path }} {{ kafka_workspace }}"
+  when: not directory_check.stat.exists
+  args:
+    creates: "{{ kafka_workspace }}"
+
+- name: Ensure Kafka data directory exists
+  file:
+    path: "{{ kafka_data_dir }}"
+    state: directory
+    owner: kafka
+    group: kafka
+    mode: "0750"
+
+- name: Ensure Kafka services log directory exists
+  file:
+    path: "{{ services_logs_dir }}"
+    state: directory
+    owner: kafka
+    group: kafka
+    mode: "0755"
+
+# ==================== KAFKA BROKER CONFIGURATION TASKS ====================
+- name: Ensure Kafka configuration directory ownership
+  file:
+    path: "{{ kafka_workspace }}/config"
+    state: directory
+    owner: kafka
+    group: kafka
+    mode: "0755"
+
+- name: Check for existing Kafka metadata
+  stat:
+    path: "{{ kafka_data_dir }}/meta.properties"
+  register: kafka_meta_properties
+  run_once: true
+
+- name: Assign deterministic node id
+  set_fact:
+    kafka_node_id: "{{ groups['kafka'].index(inventory_hostname) + 1 }}"
+  run_once: true
+  delegate_to: localhost
+  delegate_facts: true
+
+
+- name: Derive advertised host for Kafka
+  set_fact:
+    kafka_advertised_host: "{{ ansible_host | default(hostvars[inventory_hostname].private_ip) | default(ansible_default_ipv4.address) }}"
+
+- name: Derive external advertised host for Kafka
+  set_fact:
+    kafka_external_advertised_host: "{{ kafka_external_advertised_host | default(kafka_advertised_host) }}"
+
+- name: Validate kafka_advertised_host
+  assert:
+    that:
+      - kafka_advertised_host is defined
+      - kafka_advertised_host != ''
+      - kafka_advertised_host != '0.0.0.0'
+      - kafka_advertised_host != '127.0.0.1'
+      - kafka_advertised_host is match('^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$')
+    fail_msg: |
+      FATAL: kafka_advertised_host is invalid: {{ kafka_advertised_host | default('UNDEFINED') }}
+      ansible_host: {{ ansible_host | default('UNDEFINED') }}
+      private_ip: {{ hostvars[inventory_hostname].private_ip | default('UNDEFINED') }}
+      ansible_default_ipv4.address: {{ ansible_default_ipv4.address | default('UNDEFINED') }}
+    success_msg: "kafka_advertised_host validated: {{ kafka_advertised_host }}"
+
+- name: Validate kafka_external_advertised_host
+  assert:
+    that:
+      - kafka_external_advertised_host is defined
+      - kafka_external_advertised_host != ''
+      - kafka_external_advertised_host != '0.0.0.0'
+      - kafka_external_advertised_host != '127.0.0.1'
+      - kafka_external_advertised_host is match('^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$')
+    fail_msg: |
+      FATAL: kafka_external_advertised_host is invalid: {{ kafka_external_advertised_host | default('UNDEFINED') }}
+      kafka_advertised_host: {{ kafka_advertised_host | default('UNDEFINED') }}
+    success_msg: "kafka_external_advertised_host validated: {{ kafka_external_advertised_host }}"
+
+- name: DEBUG - Show final kafka_advertised_host
+  debug:
+    msg: "Broker {{ inventory_hostname }} will advertise on {{ kafka_advertised_host }}"
+
+- name: DEBUG - Show final kafka_external_advertised_host
+  debug:
+    msg: "Broker {{ inventory_hostname }} will externally advertise on {{ kafka_external_advertised_host }}"
+
+- name: DEBUG - Show all kafka_ variables
+  debug:
+    msg:
+      - "kafka_process_roles: {{ kafka_process_roles | default('UNDEFINED') }}"
+      - "kafka_node_id: {{ kafka_node_id | default('UNDEFINED') }}"
+      - "kafka_controller_port: {{ kafka_controller_port | default('UNDEFINED') }}"
+      - "kafka_client_port: {{ kafka_client_port | default('UNDEFINED') }}"
+      - "kafka_advertised_host: {{ kafka_advertised_host | default('UNDEFINED') }}"
+      - "kafka_log_dirs: {{ kafka_log_dirs | default('UNDEFINED') }}"
+
+- name: Configure Kafka KRaft server properties
+  template:
+    src: server.properties.j2
+    dest: "{{ kafka_workspace }}/config/server.properties"
+    owner: kafka
+    group: kafka
+    mode: "0644"
+  become: yes
+  register: server_properties
+
+- name: Verify advertised.listeners in rendered config
+  shell: grep "^advertised.listeners=" {{ kafka_workspace }}/config/server.properties
+  register: advertised_check
+  changed_when: false
+  become: yes
+
+- name: DEBUG - Show rendered advertised.listeners
+  debug:
+    var: advertised_check.stdout
+
+- name: Fail if advertised.listeners contains 0.0.0.0 or is empty
+  fail:
+    msg: "ERROR: advertised.listeners is misconfigured: {{ advertised_check.stdout }}"
+  when: >
+    '0.0.0.0' in advertised_check.stdout or
+    advertised_check.stdout is search('://:[0-9]+') or
+    advertised_check.stdout == ''
+
+- name: Read existing cluster id when present
+  slurp:
+    src: "{{ kafka_data_dir }}/meta.properties"
+  when: kafka_meta_properties.stat.exists
+  register: kafka_meta_contents
+  run_once: true
+
+- name: Extract existing cluster id
+  when: kafka_meta_properties.stat.exists
+  set_fact:
+    kafka_cluster_id: "{{ (kafka_meta_contents.content | b64decode).split('\n') | select('match', '^cluster.id=') | list | first | regex_replace('^cluster.id=', '') }}"
+  run_once: true
+  delegate_to: localhost
+  delegate_facts: true
+
+- name: Generate Kafka cluster UUID
+  when: not kafka_meta_properties.stat.exists
+  become_user: kafka
+  command: "{{ kafka_workspace }}/bin/kafka-storage.sh random-uuid"
+  register: kafka_cluster_uuid
+  run_once: true
+
+- name: Share generated cluster UUID
+  when: not kafka_meta_properties.stat.exists
+  set_fact:
+    kafka_cluster_id: "{{ kafka_cluster_uuid.stdout | trim }}"
+  run_once: true
+  delegate_to: localhost
+  delegate_facts: true
+
+- name: Format Kafka storage directories
+  become_user: kafka
+  command: "{{ kafka_workspace }}/bin/kafka-storage.sh format --config {{ kafka_workspace }}/config/server.properties --cluster-id {{ hostvars['localhost']['kafka_cluster_id'] }} --ignore-formatted"
+
+- name: Create Kafka systemd unit
+  template:
+    src: kafka.service.j2
+    dest: /etc/systemd/system/kafka.service
+    mode: "0644"
+
+- name: Reload systemd and start Kafka broker
+  systemd:
+    name: kafka
+    state: started
+    enabled: true
+    daemon_reload: true
+
+- name: Restart Kafka broker if configuration changed
+  systemd:
+    name: kafka
+    state: restarted
+    enabled: true
+    daemon_reload: true
+  when: server_properties is changed
+
+- name: Wait for Kafka client listener
+  wait_for:
+    host: "{{ kafka_advertised_host }}"
+    port: "{{ kafka_client_port }}"
+    delay: 5
+    timeout: 60
+    state: started
+    msg: "Kafka client listener not available on {{ inventory_hostname }}"
+
+- name: Wait for Kafka controller listener
+  wait_for:
+    host: "{{ kafka_advertised_host }}"
+    port: "{{ kafka_controller_port }}"
+    delay: 5
+    timeout: 60
+    state: started
+    msg: "Kafka controller listener not available on {{ inventory_hostname }}"
+
+- name: Unpack Kafka exporter
+  unarchive:
+    src: "{{ kafka_exporter_download_url }}"
+    dest: /opt
+    remote_src: true
+    creates: "/opt/kafka_exporter-{{ kafka_exporter_version }}.linux-amd64"
+
+- name: Symlink Kafka exporter directory
+  file:
+    src: "/opt/kafka_exporter-{{ kafka_exporter_version }}.linux-amd64"
+    dest: /opt/kafka-exporter
+    state: link
+    force: true
+
+- name: Create Kafka exporter systemd unit
+  template:
+    src: kafka_exporter.service.j2
+    dest: /etc/systemd/system/kafka_exporter.service
+    mode: "0644"
+
+- name: Reload systemd and start Kafka exporter
+  systemd:
+    name: kafka_exporter
+    state: started
+    enabled: true
+    daemon_reload: true
+
+- name: Wait for Kafka exporter endpoint
+  wait_for:
+    host: 127.0.0.1
+    port: "{{ kafka_exporter_port }}"
+    delay: 5
+    timeout: 60
+    state: started
+    msg: "Kafka exporter not reachable on {{ inventory_hostname }}"

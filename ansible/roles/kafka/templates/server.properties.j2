@@ -1,0 +1,36 @@
+
+# KRaft Configuration
+process.roles={{ kafka_process_roles }}
+node.id={{ kafka_node_id }}
+controller.quorum.voters={{ kafka_controller_quorum_voters }}
+
+# Network Listeners
+listeners=CONTROLLER://0.0.0.0:{{ kafka_controller_port }},INTERNAL://0.0.0.0:{{ kafka_client_port }},EXTERNAL://0.0.0.0:{{ kafka_external_port }}
+advertised.listeners=INTERNAL://{{ kafka_advertised_host }}:{{ kafka_client_port }},EXTERNAL://{{ kafka_external_advertised_host }}:{{ kafka_external_port }}
+
+# Listener Security Protocol Mapping
+listener.security.protocol.map=CONTROLLER:PLAINTEXT,INTERNAL:PLAINTEXT,EXTERNAL:PLAINTEXT
+controller.listener.names=CONTROLLER
+inter.broker.listener.name=INTERNAL
+
+# Storage Configuration
+log.dirs={{ kafka_log_dirs }}
+
+# Replication Settings
+offsets.topic.replication.factor={{ kafka_offsets_topic_replication_factor | default(3) }}
+transaction.state.log.replication.factor={{ kafka_transaction_state_log_replication_factor | default(3) }}
+transaction.state.log.min.isr={{ kafka_transaction_state_log_min_isr | default(2) }}
+default.replication.factor={{ kafka_default_replication_factor | default(3) }}
+min.insync.replicas={{ kafka_min_insync_replicas | default(2) }}
+
+# Performance Tuning
+num.network.threads={{ kafka_num_network_threads | default(8) }}
+num.io.threads={{ kafka_num_io_threads | default(16) }}
+socket.send.buffer.bytes={{ kafka_socket_send_buffer_bytes | default(102400) }}
+socket.receive.buffer.bytes={{ kafka_socket_receive_buffer_bytes | default(102400) }}
+socket.request.max.bytes={{ kafka_socket_request_max_bytes | default(104857600) }}
+
+# Log Retention
+log.retention.hours={{ kafka_log_retention_hours | default(168) }}
+log.segment.bytes={{ kafka_log_segment_bytes | default(1073741824) }}
+log.retention.check.interval.ms={{ kafka_log_retention_check_interval_ms | default(300000) }}
