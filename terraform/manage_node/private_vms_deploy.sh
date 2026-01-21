@@ -8,10 +8,23 @@ set -x  # Enable command echoing for debugging
 # Normalize pasted values (strip smart quotes and newlines) before writing to tfvars
 sanitize_var() {
     local val="$1"
-    val="${val//$'\r'/}"      # remove any CR
-    val="${val//$'\n'/}"      # remove embedded newlines
-    val="${val//“/\"}"      # replace left smart quote
-    val="${val//”/\"}"      # replace right smart quote
+    # normalize quotes/newlines
+    val="${val//$'\r'/}"      # remove CR
+    val="${val//$'\n'/}"      # remove newlines
+    val="${val//“/\"}"      # left smart quote -> "
+    val="${val//”/\"}"      # right smart quote -> "
+    # drop any leading "export " if someone pasted env blocks
+    val="${val#export }"
+    val="${val#EXPORT }"
+    # if a pasted block still contains another export, keep only the first token
+    val="${val%%export *}"
+    val="${val%%EXPORT *}"
+    # trim surrounding whitespace
+    val="${val#${val%%[![:space:]]*}}"
+    val="${val%${val##*[![:space:]]}}"
+    # strip surrounding quotes (repeat to collapse double quotes)
+    while [ "${val#\"}" != "$val" ]; do val="${val#\"}"; done
+    while [ "${val%\"}" != "$val" ]; do val="${val%\"}"; done
     echo "$val"
 }
 
