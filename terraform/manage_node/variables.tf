@@ -45,24 +45,6 @@ variable "control_nsg_id" {
   description = "Optional existing NSG ID to use for control subnet. When set, the module will use this NSG instead of creating a new one."
 }
 
-variable "enable_control_nat_gateway" {
-  type        = bool
-  default     = true
-  description = "Create and attach a NAT gateway for control subnet outbound access. Enable this to allow Terraform and package downloads."
-}
-
-variable "control_nat_ip_name" {
-  type        = string
-  default     = "control-nat-ip"
-  description = "Name of the public IP address for the control NAT gateway."
-}
-
-variable "control_nat_gateway_name" {
-  type        = string
-  default     = "control-nat-gateway"
-  description = "Name of the NAT gateway for control subnet outbound internet connectivity."
-}
-
 # Kafka network configuration
 variable "use_existing_kafka_network" {
   type        = bool
