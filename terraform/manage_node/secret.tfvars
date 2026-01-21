@@ -26,6 +26,7 @@ existing_kafka_vnet_resource_group_name = "kafka_t1"   # same RG as above
 enable_vnet_peering                     = false                   # same VNet => no peering needed
 enable_kafka_nat_gateway                = false                   # assume subnet already has outbound path
 kafka_nsg_id                            = "/subscriptions/8d6bd1eb-ae31-4f2c-856a-0f8e47115c4b/resourceGroups/kafka_t1/providers/Microsoft.Network/networkSecurityGroups/control-nsg"                     # optional: set if you have an NSG to reuse
+control_nsg_id                          = "/subscriptions/8d6bd1eb-ae31-4f2c-856a-0f8e47115c4b/resourceGroups/kafka_t1/providers/Microsoft.Network/networkSecurityGroups/control-nsg"                   # use existing NSG for control node
 
 # Availability Zone Configuration
 # For regions WITHOUT Availability Zones (westus, northcentralus, etc.):
