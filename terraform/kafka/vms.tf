@@ -114,6 +114,9 @@ resource "azurerm_linux_virtual_machine" "kafka_brokers" {
     name      = "9-base"
   }
 
+  # Bootstrap with cloud-init for system dependencies
+  custom_data = base64encode(templatefile("${path.module}/cloud-init.tpl", {}))
+
   identity {
     type = "SystemAssigned"
   }
@@ -213,30 +216,30 @@ resource "null_resource" "launch_ansible_playbook" {
   }
 
   provisioner "local-exec" {
-    working_dir = "/home/azureadmin/ecom-middleware-ops/ansible"
+    working_dir = local.ansible_working_dir
     interpreter = ["/bin/bash", "-c"]
     command     = <<-EOT
       set -e
-      source /home/azureadmin/ansible-venv/bin/activate
+      source ${local.computed_ansible_venv_path}/bin/activate
       
       # Login to Azure
       az login --identity >/dev/null 2>&1 || { echo "Azure login failed"; exit 1; }
       
-      # Wait for VMs to be fully ready
-      echo "Waiting 90 seconds for VMs to complete cloud-init..."
-      sleep 90
+      # Wait for VMs to complete cloud-init bootstrap
+      echo "Waiting 120 seconds for VMs to complete cloud-init bootstrap..."
+      sleep 120
       
       # Validate VMs are ready
       echo "Validating VM readiness..."
-      bash ./scripts/validate_vms_ready.sh ${local.kafka_rg_name} ${var.kafka_admin_username} || {
+      bash ${local.computed_repository_base}/ansible/scripts/validate_vms_ready.sh ${local.kafka_rg_name} ${var.kafka_admin_username} || {
         echo "ERROR: VMs are not ready. Waiting additional 60 seconds..."
         sleep 60
-        bash ./scripts/validate_vms_ready.sh ${local.kafka_rg_name} ${var.kafka_admin_username}
+        bash ${local.computed_repository_base}/ansible/scripts/validate_vms_ready.sh ${local.kafka_rg_name} ${var.kafka_admin_username}
       }
       
       # Generate inventory
       mkdir -p inventory
-      bash ./scripts/inventory_script_hosts_vms.sh ${local.kafka_rg_name} ${var.kafka_admin_username} > inventory/kafka_hosts
+      bash ${local.computed_repository_base}/ansible/scripts/inventory_script_hosts_vms.sh ${local.kafka_rg_name} ${var.kafka_admin_username} > inventory/kafka_hosts
       
       # Verify inventory was generated
       if [ ! -s inventory/kafka_hosts ]; then

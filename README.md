@@ -222,6 +222,12 @@ kafka_vm_zone            = "2"
 # Control node
 control_vm_size          = "Standard_D4as_v5"
 
+# Deployment paths (optional, defaults shown)
+# repository_name        = "ecom-middleware-ops"    # Repository directory name
+# control_node_user      = "azureadmin"             # Control node username
+# ansible_venv_path      = "/home/azureadmin/ansible-venv"  # Ansible venv location
+# repository_base_dir    = "/home/azureadmin/ecom-middleware-ops"  # Repository base path
+
 # SSH keys (optional, defaults to ~/.ssh/id_rsa[.pub])
 # ssh_public_key_path    = "~/.ssh/custom_key.pub"
 # ssh_private_key_path   = "~/.ssh/custom_key"
@@ -292,6 +298,32 @@ ansible-playbook -i inventory/kafka_hosts playbooks/deploy_kafka_playbook.yaml
 # 5. Validate deployment
 ./scripts/kafka_health_check.sh
 ```
+
+---
+
+## Kafka VM Provisioning
+
+Kafka broker VMs are provisioned with a two-stage bootstrap process:
+
+### Stage 1: Cloud-Init Bootstrap (Automated)
+When Kafka VMs are created, cloud-init automatically:
+- Installs system dependencies: Java 17, Python 3, git, curl, jq
+- Creates required directories: `/opt/kafka`, `/data/kafka`
+- Formats and mounts data disk (if attached)
+- Sets up Python virtual environment for Ansible
+- Configures system limits and kernel parameters for Kafka performance
+
+**Cloud-init template:** [terraform/kafka/cloud-init.tpl](terraform/kafka/cloud-init.tpl)
+- Executes on first boot (takes ~2 minutes)
+- Logs to `/var/log/kafka-bootstrap-complete.log`
+
+### Stage 2: Ansible Configuration (Remote)
+After cloud-init completes, Ansible (running on the control node):
+- Generates dynamic Kafka broker inventory
+- Deploys Kafka binaries and configuration
+- Enables KRaft consensus mode with controller quorum
+- Sets up monitoring exporters (Kafka exporter, node exporter)
+- Deploys Prometheus and Grafana stack
 
 ---
 
@@ -419,7 +451,6 @@ ecom-middleware-ops/
 │   │   ├── test_broker_ssh.sh         # SSH connectivity test
 │   │   ├── import_existing_brokers.sh # Terraform state recovery
 │   │   ├── cleanup_duplicate_brokers.sh
-│   │   ├── bootstrap_kafka.sh         # Cloud-init provisioning
 │   │   └── ... (other utilities)
 │   ├── templates/
 │   │   └── prometheus_node_targets.json.j2
@@ -906,6 +937,37 @@ resource_group_name      = "kafka_t1"
 resource_group_location  = "eastus2"
 ```
 
+#### Configurable Deployment Paths
+
+All directory paths are configurable via Terraform variables, allowing flexible deployment across different environments:
+
+**Default Configuration:**
+- `repository_name`: `"ecom-middleware-ops"` - Repository directory name
+- `control_node_user`: `"azureadmin"` - Username on control node
+- `ansible_venv_path`: Auto-computed as `/home/{control_node_user}/ansible-venv`
+- `repository_base_dir`: Auto-computed as `/home/{control_node_user}/{repository_name}`
+
+**Custom Example:**
+```hcl
+# terraform/kafka/terraform.tfvars or secret.tfvars
+repository_name     = "kafka-infra"
+control_node_user   = "kafkaadmin"
+ansible_venv_path   = "/opt/ansible-venv"
+repository_base_dir = "/opt/kafka-infra"
+```
+
+**Shell Scripts:**
+The Ansible scale scripts (`scale_out_broker.sh`, `scale_down_broker.sh`) automatically detect the Ansible virtual environment:
+- First checks system PATH for `ansible-playbook`
+- Falls back to `$ANSIBLE_VENV_PATH` environment variable
+- Defaults to `/home/$USER/ansible-venv` if not set
+
+**Override in shell:**
+```bash
+export ANSIBLE_VENV_PATH="/opt/ansible-venv"
+./ansible/scripts/scale_out_broker.sh --broker-count 5 ...
+```
+
 ### Custom Kafka Configuration
 
 Modify broker properties via Ansible variables:
@@ -1059,7 +1121,7 @@ Operational scripts are centralized in `ansible/scripts/`:
 - **Cluster Management**: `manage_kafka_cluster.sh`, `kafka_health_check.sh`
 - **Scaling**: `scale_out_broker.sh`, `test_broker_ssh.sh`
 - **State Recovery**: `import_existing_brokers.sh`, `cleanup_duplicate_brokers.sh`
-- **Utilities**: `bootstrap_kafka.sh`, `kafka_cluster_id_generator.sh`, etc.
+- **Utilities**: `kafka_cluster_id_generator.sh`, and other helper scripts
 
 All scripts work from any directory and automatically navigate to the correct working directories.
 

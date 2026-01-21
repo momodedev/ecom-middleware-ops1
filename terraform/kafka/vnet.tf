@@ -68,6 +68,11 @@ locals {
   kafka_nsg_id       = var.kafka_nsg_id != "" ? var.kafka_nsg_id : (!var.use_existing_kafka_network ? azurerm_network_security_group.example[0].id : null)
   attach_kafka_nsg   = var.kafka_nsg_id != "" || (!var.use_existing_kafka_network)
   kafka_nat_enabled  = var.enable_kafka_nat_gateway && !var.is_public
+  
+  # Computed paths for Ansible deployment
+  computed_ansible_venv_path = var.ansible_venv_path != "" ? var.ansible_venv_path : "/home/${var.control_node_user}/ansible-venv"
+  computed_repository_base   = var.repository_base_dir != "" ? var.repository_base_dir : "/home/${var.control_node_user}/${var.repository_name}"
+  ansible_working_dir        = "${local.computed_repository_base}/ansible"
 }
 
 resource "azurerm_network_security_group" "example" {

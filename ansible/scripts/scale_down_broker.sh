@@ -156,21 +156,22 @@ trap "rm -rf $TEMP_DIR" EXIT
 SSH_OPTS="-o BatchMode=yes -o StrictHostKeyChecking=accept-new -o ConnectTimeout=10"
 
 # Ensure ansible and ansible-playbook are available (prefer control node venv)
+ANSIBLE_VENV_PATH="${ANSIBLE_VENV_PATH:-/home/${USER}/ansible-venv}"
 ANSIBLE_BIN=$(command -v ansible || true)
 ANSIBLE_PLAYBOOK_BIN=$(command -v ansible-playbook || true)
 
-if [[ -z "$ANSIBLE_BIN" && -x "/home/azureadmin/ansible-venv/bin/ansible" ]]; then
-  ANSIBLE_BIN="/home/azureadmin/ansible-venv/bin/ansible"
-  export PATH="/home/azureadmin/ansible-venv/bin:$PATH"
+if [[ -z "$ANSIBLE_BIN" && -x "${ANSIBLE_VENV_PATH}/bin/ansible" ]]; then
+  ANSIBLE_BIN="${ANSIBLE_VENV_PATH}/bin/ansible"
+  export PATH="${ANSIBLE_VENV_PATH}/bin:$PATH"
 fi
 
-if [[ -z "$ANSIBLE_PLAYBOOK_BIN" && -x "/home/azureadmin/ansible-venv/bin/ansible-playbook" ]]; then
-  ANSIBLE_PLAYBOOK_BIN="/home/azureadmin/ansible-venv/bin/ansible-playbook"
-  export PATH="/home/azureadmin/ansible-venv/bin:$PATH"
+if [[ -z "$ANSIBLE_PLAYBOOK_BIN" && -x "${ANSIBLE_VENV_PATH}/bin/ansible-playbook" ]]; then
+  ANSIBLE_PLAYBOOK_BIN="${ANSIBLE_VENV_PATH}/bin/ansible-playbook"
+  export PATH="${ANSIBLE_VENV_PATH}/bin:$PATH"
 fi
 
 if [[ -z "$ANSIBLE_BIN" || -z "$ANSIBLE_PLAYBOOK_BIN" ]]; then
-  log_error "ansible/ansible-playbook not found. Install Ansible or ensure /home/azureadmin/ansible-venv exists."
+  log_error "ansible/ansible-playbook not found. Install Ansible or ensure ${ANSIBLE_VENV_PATH} exists."
   exit 1
 fi
 
