@@ -16,3 +16,9 @@ enable_kafka_nat_gateway=false
 kafka_nsg_id="/subscriptions/8d6bd1eb-ae31-4f2c-856a-0f8e47115c4b/resourceGroups/kafka_t1/providers/Microsoft.Network/networkSecurityGroups/control-nsg"
 enable_vnet_peering=false
 is_public=true
+
+# Deployment paths for Ansible provisioning
+repository_name="ecom-middleware-ops1"
+control_node_user="azureadmin"
+# ansible_venv_path="" # Uncomment to override, defaults to /home/{control_node_user}/ansible-venv
+# repository_base_dir="" # Uncomment to override, defaults to /home/{control_node_user}/{repository_name}
