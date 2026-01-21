@@ -233,7 +233,7 @@ resource "azurerm_nat_gateway_public_ip_association" "example" {
 }
 
 resource "azurerm_subnet_nat_gateway_association" "example" {
-  count         = var.enable_kafka_nat_gateway ? 1 : 0
+  count         = (var.enable_kafka_nat_gateway && !var.use_existing_kafka_network) ? 1 : 0
   subnet_id      = local.kafka_subnet_id
   nat_gateway_id = azurerm_nat_gateway.example[0].id
 }
