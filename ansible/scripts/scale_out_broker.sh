@@ -1,9 +1,9 @@
 #!/bin/bash
 # scale_out_broker.sh
 # Comprehensive shell wrapper for scaling out Kafka cluster by provisioning and configuring brokers
-# Usage: 
-#   Single broker: ./scale_out_broker.sh --broker-name kafka-broker-3 --subscription-id <id> --resource-group kafka-t2
-#   Multiple brokers: ./scale_out_broker.sh --broker-count 6 --subscription-id <id> --resource-group kafka-t2
+# Usage:
+#   Single broker: ./scale_out_broker.sh --broker-name kafka-broker-3 --subscription-id <id> --resource-group <rg>
+#   Multiple brokers: ./scale_out_broker.sh --broker-count 6 --subscription-id <id> --resource-group <rg>
 #   (--broker-count: total desired broker count, script calculates which brokers to add)
 
 set -e
@@ -198,11 +198,11 @@ for ((i=CURRENT_BROKER_COUNT; i<BROKER_COUNT; i++)); do
   BROKER_SEQUENCE=$((i+1))
   # Consistent 0-indexed naming across all components:
   # - Terraform Index: 0, 1, 2...
-  # - Azure VM Name: kafka-t2-broker-0, kafka-t2-broker-1...
+  # - Azure VM Name: kafka_t1-broker-0, kafka_t1-broker-1...
   # - Computer Name: kafka-broker-0, kafka-broker-1...
   # - Inventory Name: kafka-broker-0, kafka-broker-1...
   # - Kafka Node ID: 1, 2, 3... (1-indexed as required by KRaft)
-  AZURE_VM_NAME="kafka-t2-broker-${BROKER_INDEX}"
+  AZURE_VM_NAME="kafka_t1-broker-${BROKER_INDEX}"
   if [[ -n "$BROKER_NAME" ]]; then
     CURRENT_BROKER_NAME="$BROKER_NAME"
   else

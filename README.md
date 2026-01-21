@@ -73,8 +73,8 @@ kafka_instance_count     = 3
 deploy_mode              = "together"  # or "separate"
 kafka_vm_size            = "Standard_D4as_v5"
 resource_group_location  = "westus"
-resource_group_name      = "kafka-t2"
-kafka_resource_group_name = "kafka-t2"
+resource_group_name      = "kafka_t1"
+kafka_resource_group_name = "kafka_t1"
 control_vm_size          = "Standard_D4as_v5"
 EOF
 
@@ -94,13 +94,13 @@ ssh azureadmin@$CONTROL_IP
 # Validate VMs are ready
 cd ~/ecom-middleware-ops/ansible
 source ~/ansible-venv/bin/activate
-bash scripts/validate_vms_ready.sh kafka-t2 rockyadmin
+bash scripts/validate_vms_ready.sh kafka_t1 rockyadmin
 
 # Run health check
 ./scripts/kafka_health_check.sh
 
 # Check VM status in Azure
-az vm list -g kafka-t2 --query "[].{Name:name, State:provisioningState, Power:powerState}" -o table
+az vm list -g kafka_t1 --query "[].{Name:name, State:provisioningState, Power:powerState}" -o table
 ```
 
 **Expected Output:**
@@ -148,7 +148,7 @@ export ARM_TENANT_ID="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
 | Variable | Type | Default | Description |
 |----------|------|---------|-------------|
 | `resource_group_name` | string | `"control_rg"` | Resource group name for control node |
-| `kafka_resource_group_name` | string | `"kafka-t2"` | Resource group name for Kafka cluster (separate from control) |
+| `kafka_resource_group_name` | string | `"kafka_t1"` | Resource group name for Kafka cluster (separate from control) |
 | `resource_group_location` | string | `"westus"` | Azure region for both resource groups |
 | `control_vm_size` | string | `"Standard_D4as_v5"` | Azure VM SKU for control node |
 | `kafka_vm_size` | string | `"Standard_D8s_v5"` | Azure VM SKU for Kafka brokers |
@@ -200,8 +200,8 @@ kafka_data_disk_throughput_mbps = 125  # Optional, defaults to 125
 
 # Regional configuration
 resource_group_location  = "westus"
-resource_group_name      = "kafka-t2"
-kafka_resource_group_name = "kafka-t2"
+resource_group_name      = "kafka_t1"
+kafka_resource_group_name = "kafka_t1"
 kafka_vm_zone            = "2"
 
 # Control node
@@ -286,7 +286,7 @@ cd ~/ecom-middleware-ops/terraform/manage_node
   125 \                                     # kafka_data_disk_throughput_mbps
   Standard_D4as_v5 \                        # kafka_vm_size
   "" \                                      # ansible_run_id
-  kafka-t2 \                              # kafka_resource_group_name
+  kafka_t1 \                              # kafka_resource_group_name
   westus                                   # resource_group_location
 
 # 4. Validate deployment
@@ -515,14 +515,14 @@ cd ansible
 ./scripts/scale_out_broker.sh \
   --subscription-id 8d6bd1eb-ae31-4f2c-856a-0f8e47115c4b \
   --broker-count 5 \
-  --resource-group kafka-t2 \
+  --resource-group kafka_t1 \
   --ansible-user rockyadmin
 
 # Or add a specific broker
 ./scripts/scale_out_broker.sh \
   --subscription-id 8d6bd1eb-ae31-4f2c-856a-0f8e47115c4b \
-  --broker-name kafka-t2-broker-6 \
-  --resource-group kafka-t2 \
+  --broker-name kafka_t1-broker-6 \
+  --resource-group kafka_t1 \
   --ansible-user rockyadmin
 ```
 
@@ -547,7 +547,7 @@ cd ansible
 ./scripts/scale_down_broker.sh \
   --target-count 3 \
   --subscription-id 8d6bd1eb-ae31-4f2c-856a-0f8e47115c4b \
-  --resource-group kafka-t2 \
+  --resource-group kafka_t1 \
   --ansible-user rockyadmin
 ```
 
@@ -587,7 +587,7 @@ cd ansible
 source ~/ansible-venv/bin/activate
 
 # Validate all VMs in resource group
-bash scripts/validate_vms_ready.sh kafka-t2 rockyadmin
+bash scripts/validate_vms_ready.sh kafka_t1 rockyadmin
 
 # This script:
 # - Checks VM power state
@@ -637,7 +637,7 @@ curl "http://$CONTROL_IP:9090/api/v1/query?query=kafka_brokers"
 When scaling Kafka brokers, you may encounter this error:
 
 ```
-Error: a resource with the ID ".../kafka-t2-broker-4" already exists - 
+Error: a resource with the ID ".../kafka_t1-broker-4" already exists - 
 to be managed via Terraform this resource needs to be imported into the State.
 ```
 
@@ -654,7 +654,7 @@ cd ansible/scripts
 # Import brokers into state
 ./import_existing_brokers.sh \
   --subscription-id 8d6bd1eb-ae31-4f2c-856a-0f8e47115c4b \
-  --resource-group kafka-t2 \
+  --resource-group kafka_t1 \
   --broker-count 6
 
 # Verify import
@@ -674,7 +674,7 @@ cd ansible/scripts
 # Delete conflicting brokers (destructive)
 ./cleanup_duplicate_brokers.sh \
   --subscription-id 8d6bd1eb-ae31-4f2c-856a-0f8e47115c4b \
-  --resource-group kafka-t2 \
+  --resource-group kafka_t1 \
   --broker-indices 4,5
 
 # Recreate via Terraform
@@ -688,19 +688,19 @@ terraform apply -auto-approve
 cd terraform/kafka
 
 SUBSCRIPTION_ID="8d6bd1eb-ae31-4f2c-856a-0f8e47115c4b"
-RG="kafka-t2"
+RG="kafka_t1"
 
 # Import broker VM
 terraform import azurerm_linux_virtual_machine.kafka_brokers[4] \
-  /subscriptions/$SUBSCRIPTION_ID/resourceGroups/$RG/providers/Microsoft.Compute/virtualMachines/kafka-t2-broker-4
+  /subscriptions/$SUBSCRIPTION_ID/resourceGroups/$RG/providers/Microsoft.Compute/virtualMachines/kafka_t1-broker-4
 
 # Import network interface
 terraform import azurerm_network_interface.kafka_brokers[4] \
-  /subscriptions/$SUBSCRIPTION_ID/resourceGroups/$RG/providers/Microsoft.Network/networkInterfaces/kafka-t2-broker-4-nic
+  /subscriptions/$SUBSCRIPTION_ID/resourceGroups/$RG/providers/Microsoft.Network/networkInterfaces/kafka_t1-broker-4-nic
 
 # Import data disk
 terraform import azurerm_managed_disk.kafka_data_disk[4] \
-  /subscriptions/$SUBSCRIPTION_ID/resourceGroups/$RG/providers/Microsoft.Compute/disks/kafka-t2-broker-4-data
+  /subscriptions/$SUBSCRIPTION_ID/resourceGroups/$RG/providers/Microsoft.Compute/disks/kafka_t1-broker-4-data
 ```
 
 ---
@@ -776,7 +776,7 @@ resource_group_location = "eastus2"  # Or weastus2, westeurope
 # 5. Validate and auto-start VMs before deployment
 cd ansible
 source ~/ansible-venv/bin/activate
-bash scripts/validate_vms_ready.sh kafka-t2 rockyadmin
+bash scripts/validate_vms_ready.sh kafka_t1 rockyadmin
 # This script auto-starts stopped VMs with 6 retries (~60s timeout)
 ```
 
@@ -918,7 +918,7 @@ environment            = "prod"
 
 ```hcl
 # terraform/manage_node/secret.tfvars
-resource_group_name      = "kafka-t2"
+resource_group_name      = "kafka_t1"
 resource_group_location  = "eastus2"
 keyvault_name           = "kafka-keyvault"
 github_token            = "ghp_xxxxx..."
@@ -1154,27 +1154,27 @@ All scripts and configurations are proprietary. For authorization requests, cont
 example for deployment at 2026-01-20
 
 export USE_EXISTING_KAFKA_NETWORK=true
-export EXISTING_KAFKA_VNET_RESOURCE_GROUP_NAME="kafka-t2"
-export KAFKA_VNET_NAME="vnet-t2"
+export EXISTING_KAFKA_VNET_RESOURCE_GROUP_NAME="kafka_t1"
+export KAFKA_VNET_NAME="vnet-t1"
 export KAFKA_SUBNET_NAME="default"
 export ENABLE_KAFKA_NAT_GATEWAY=false
-export KAFKA_NSG_ID="/subscriptions/8d6bd1eb-ae31-4f2c-856a-0f8e47115c4b/resourceGroups/kafka-t2/providers/Microsoft.Network/networkSecurityGroups/control-nsg"
+export KAFKA_NSG_ID="/subscriptions/8d6bd1eb-ae31-4f2c-856a-0f8e47115c4b/resourceGroups/kafka_t1/providers/Microsoft.Network/networkSecurityGroups/control-nsg"
 export ENABLE_VNET_PEERING=false
 export KAFKA_VM_ZONE="1"
 export ENABLE_AVAILABILITY_ZONES=true
 export USE_PREMIUM_V2_DISKS=true
 
-./private_vms_deploy.sh "8d6bd1eb-ae31-4f2c-856a-0f8e47115c4b" apply 3 3000 125 Standard_D8ls_v6 "" kafka-t2 westus3
+./private_vms_deploy.sh "8d6bd1eb-ae31-4f2c-856a-0f8e47115c4b" apply 3 3000 125 Standard_D8ls_v6 "" kafka_t1 westus3
 
 export USE_EXISTING_KAFKA_NETWORK=true
-export EXISTING_KAFKA_VNET_RESOURCE_GROUP_NAME="kafka-t2"
-export KAFKA_VNET_NAME="vnet-t2"
+export EXISTING_KAFKA_VNET_RESOURCE_GROUP_NAME="kafka_t1"
+export KAFKA_VNET_NAME="vnet-t1"
 export KAFKA_SUBNET_NAME="default"
 export ENABLE_KAFKA_NAT_GATEWAY=false
-export KAFKA_NSG_ID="/subscriptions/8d6bd1eb-ae31-4f2c-856a-0f8e47115c4b/resourceGroups/kafka-t2/providers/Microsoft.Network/networkSecurityGroups/control-nsg"
+export KAFKA_NSG_ID="/subscriptions/8d6bd1eb-ae31-4f2c-856a-0f8e47115c4b/resourceGroups/kafka_t1/providers/Microsoft.Network/networkSecurityGroups/control-nsg"
 export ENABLE_VNET_PEERING=false
 export KAFKA_VM_ZONE="1"
 export ENABLE_AVAILABILITY_ZONES=true
 export USE_PREMIUM_V2_DISKS=true
 
-./private_vms_deploy.sh "8d6bd1eb-ae31-4f2c-856a-0f8e47115c4b" destroy 3 3000 125 Standard_D8ls_v6 "" kafka-t2 westus3
+./private_vms_deploy.sh "8d6bd1eb-ae31-4f2c-856a-0f8e47115c4b" destroy 3 3000 125 Standard_D8ls_v6 "" kafka_t1 westus3

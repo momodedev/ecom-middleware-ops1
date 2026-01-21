@@ -8,7 +8,7 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 
 if [[ $# -lt 2 ]]; then
     echo "Usage: $0 <resource-group> <admin-username>" >&2
-    echo "Example: $0 kafka-t2 rockyadmin" >&2
+    echo "Example: $0 kafka-cluster rockyadmin" >&2
     exit 1
 fi
 
@@ -36,7 +36,7 @@ echo ""
 # Get all Kafka broker VMs
 echo "[2/5] Discovering Kafka broker VMs..."
 vm_names=$(az vm list -g "$RESOURCE_GROUP" \
-    --query "[?starts_with(name, 'kafka-t2-broker-')].name" \
+    --query "[?starts_with(name, '${resource_group}-broker-')].name" \
     -o tsv | sort)
 
 if [[ -z "$vm_names" ]]; then

@@ -8,7 +8,7 @@
 set -e
 
 # Default resource group
-RESOURCE_GROUP="${1:-kafka-t2}"
+RESOURCE_GROUP="${1:-kafka_t1}"
 
 echo "=================================================="
 echo "Kafka Broker Public IP Verification"

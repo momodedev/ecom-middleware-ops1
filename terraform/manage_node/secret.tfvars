@@ -1,6 +1,6 @@
-kafka_vnet_name                         = "vnet-t2"   # CHANGE to your existing VNet name
+kafka_vnet_name                         = "vnet-t1"   # CHANGE to your existing VNet name
 kafka_subnet_name                       = "default" # CHANGE to your existing subnet name
-control_vnet_name                       = "vnet-t2"   # same VNet for control + Kafka
+control_vnet_name                       = "vnet-t1"   # same VNet for control + Kafka
 control_subnet_name                     = "default" # reuse same subnet for control (or set a dedicated subnet name if it exists)
 github_token         = ""
 ARM_SUBSCRIPTION_ID  = "8d6bd1eb-ae31-4f2c-856a-0f8e47115c4b" #"8d6bd1eb-ae31-4f2c-856a-0f8e47115c4b"
@@ -13,19 +13,19 @@ kafka_vm_size        = "Standard_D8ls_v6"
 resource_group_location = "westus3"
 
 # Single resource group for both control and Kafka
-resource_group_name      = "kafka-t2"
-kafka_resource_group_name = "kafka-t2"
+resource_group_name      = "kafka_t1"
+kafka_resource_group_name = "kafka_t1"
 
 # Deploy into an existing VNet/subnet (shared by control + Kafka)
 use_existing_control_network             = true
-control_network_resource_group_name     = "kafka-t2"   # RG that already has the VNet
+control_network_resource_group_name     = "kafka_t1"   # RG that already has the VNet
 use_existing_kafka_network              = true
-existing_kafka_vnet_resource_group_name = "kafka-t2"   # same RG as above
+existing_kafka_vnet_resource_group_name = "kafka_t1"   # same RG as above
 #kafka_vnet_name                         = "existing-vnet-name"   # CHANGE to your existing VNet name
 #kafka_subnet_name                       = "existing-subnet-name" # CHANGE to your existing subnet name
 enable_vnet_peering                     = false                   # same VNet => no peering needed
 enable_kafka_nat_gateway                = false                   # assume subnet already has outbound path
-kafka_nsg_id                            = "/subscriptions/8d6bd1eb-ae31-4f2c-856a-0f8e47115c4b/resourceGroups/kafka-t2/providers/Microsoft.Network/networkSecurityGroups/kafka-t2-nsg"                     # optional: set if you have an NSG to reuse
+kafka_nsg_id                            = "/subscriptions/8d6bd1eb-ae31-4f2c-856a-0f8e47115c4b/resourceGroups/kafka_t1/providers/Microsoft.Network/networkSecurityGroups/control-nsg"                     # optional: set if you have an NSG to reuse
 
 # Availability Zone Configuration
 # For regions WITHOUT Availability Zones (westus, northcentralus, etc.):

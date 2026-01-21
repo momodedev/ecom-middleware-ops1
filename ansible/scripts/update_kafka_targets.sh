@@ -19,7 +19,7 @@ mkdir -p "$TARGETS_DIR"
 # Get all Kafka broker VMs sorted by name
 echo "Discovering Kafka brokers in resource group: $RESOURCE_GROUP"
 vm_names=$(az vm list -g "$RESOURCE_GROUP" \
-  --query "[?starts_with(name, 'kafka-t2-broker-')].name" -o tsv | sort)
+  --query "[?starts_with(name, '${resource_group}-broker-')].name" -o tsv | sort)
 
 if [[ -z "$vm_names" ]]; then
     echo "Error: No Kafka brokers found" >&2

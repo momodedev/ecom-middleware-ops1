@@ -10,7 +10,7 @@ variable "resource_group_name" {
 
 variable "kafka_resource_group_name" {
   type        = string
-  default     = "kafka-t2"
+  default     = "kafka-cluster"
   description = "Resource group name for Kafka cluster infrastructure (separate from control node)."
 }
 
@@ -45,6 +45,30 @@ variable "control_nsg_name" {
   description = "Name of the Network Security Group attached to the control subnet."
 }
 
+variable "control_nsg_id" {
+  type        = string
+  default     = ""
+  description = "Optional existing NSG ID to use for control subnet. When set, the module will use this NSG instead of creating a new one."
+}
+
+variable "enable_control_nat_gateway" {
+  type        = bool
+  default     = true
+  description = "Create and attach a NAT gateway for control subnet outbound access. Enable this to allow Terraform and package downloads."
+}
+
+variable "control_nat_ip_name" {
+  type        = string
+  default     = "control-nat-ip"
+  description = "Name of the public IP address for the control NAT gateway."
+}
+
+variable "control_nat_gateway_name" {
+  type        = string
+  default     = "control-nat-gateway"
+  description = "Name of the NAT gateway for control subnet outbound internet connectivity."
+}
+
 # Kafka network pass-through (used by private_vms_deploy.sh)
 variable "use_existing_kafka_network" {
   type        = bool
@@ -60,7 +84,7 @@ variable "existing_kafka_vnet_resource_group_name" {
 
 variable "kafka_vnet_name" {
   type        = string
-  default     = "vnet-t2"
+  default     = "kafka-vnet"
   description = "Kafka VNet name passed into the kafka module / script."
 }
 

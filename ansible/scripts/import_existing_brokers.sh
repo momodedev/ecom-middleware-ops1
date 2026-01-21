@@ -2,12 +2,12 @@
 # import_existing_brokers.sh
 # Helper script to import existing Kafka broker resources into Terraform state
 # Moved to ansible/scripts/ but runs terraform from terraform/kafka directory
-# Usage: ./import_existing_brokers.sh [--subscription-id <id>] [--resource-group kafka-t2] [--broker-count 6]
+# Usage: ./import_existing_brokers.sh [--subscription-id <id>] [--resource-group kafka_t1] [--broker-count 6]
 
 set -e
 
 SUBSCRIPTION_ID=""
-RESOURCE_GROUP="kafka-t2"
+RESOURCE_GROUP="${KAFKA_RESOURCE_GROUP:-kafka-cluster}"
 BROKER_COUNT=6
 
 # Colors
@@ -66,8 +66,9 @@ if [[ ! -d ".terraform" ]]; then
 fi
 
 # Import VM resources
+VM_PREFIX="${KAFKA_VM_PREFIX:-kafka-cluster}"
 for ((i=0; i<BROKER_COUNT; i++)); do
-  VM_NAME="kafka-t2-broker-$i"
+  VM_NAME="${VM_PREFIX}-broker-$i"
   VM_ID="/subscriptions/$SUBSCRIPTION_ID/resourceGroups/$RESOURCE_GROUP/providers/Microsoft.Compute/virtualMachines/$VM_NAME"
   
   # Check if VM exists in Azure

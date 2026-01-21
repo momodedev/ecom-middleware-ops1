@@ -6,7 +6,7 @@ variable "resource_group_location" {
 
 variable "resource_group_name" {
   type        = string
-  default     = "kafka-t2"
+  default     = "kafka-cluster"
   description = "Name of the Azure resource group that will host all Kafka cluster infrastructure resources (VNet, subnets, VMs, NSG, NAT gateway, etc.)."
 }
 
@@ -29,8 +29,8 @@ variable "ARM_SUBSCRIPTION_ID" {
 
 variable "kafka_vms_name" {
   type        = string
-  default     = "kafka-t2-brokers"
-  description = "Name prefix assigned to the Kafka broker virtual machines (kafka-t2-* prefix)."
+  default     = "kafka-brokers"
+  description = "Name prefix assigned to the Kafka broker virtual machines."
 }
 
 variable "kafka_admin_username" {
@@ -85,7 +85,7 @@ variable "ansible_run_id" {
 # Network resource naming variables
 variable "kafka_vnet_name" {
   type        = string
-  default     = "vnet-t2"
+  default     = "kafka-vnet"
   description = "Name of the Virtual Network hosting Kafka infrastructure."
 }
 
@@ -109,19 +109,19 @@ variable "existing_kafka_vnet_resource_group_name" {
 
 variable "kafka_nsg_name" {
   type        = string
-  default     = "kafka-t2-nsg"
+  default     = "kafka-nsg"
   description = "Name of the Network Security Group managing inbound/outbound traffic for Kafka infrastructure."
 }
 
 variable "kafka_nat_ip_name" {
   type        = string
-  default     = "kafka-t2-nat-ip"
+  default     = "kafka-nat-ip"
   description = "Name of the public IP address for the NAT gateway."
 }
 
 variable "kafka_nat_gateway_name" {
   type        = string
-  default     = "kafka-t2-nat-gateway"
+  default     = "kafka-nat-gateway"
   description = "Name of the NAT gateway for outbound internet connectivity."
 }
 
@@ -140,7 +140,7 @@ variable "kafka_nsg_id" {
 # Control network peering variables
 variable "control_resource_group_name" {
   type        = string
-  default     = "kafka-t2"
+  default     = "control-rg"
   description = "Name of the resource group containing the control node VNet for VNet peering."
 }
 

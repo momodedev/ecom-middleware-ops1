@@ -2,12 +2,13 @@
 # cleanup_duplicate_brokers.sh
 # Emergency script to remove conflicting Kafka broker VMs from Azure
 # WARNING: This will DELETE the specified brokers - use with caution!
-# Usage: ./cleanup_duplicate_brokers.sh [--subscription-id <id>] [--resource-group kafka-t2] [--broker-indices 4,5]
+# Usage: ./cleanup_duplicate_brokers.sh [--subscription-id <id>] [--resource-group <rg>] [--vm-prefix <prefix>] [--broker-indices 4,5]
 
 set -e
 
 SUBSCRIPTION_ID=""
-RESOURCE_GROUP="kafka-t2"
+RESOURCE_GROUP="${KAFKA_RESOURCE_GROUP:-kafka-cluster}"
+VM_PREFIX="${KAFKA_VM_PREFIX:-kafka-cluster}"
 BROKER_INDICES=""
 
 # Colors
@@ -27,6 +28,7 @@ while [[ $# -gt 0 ]]; do
   case $1 in
     --subscription-id) SUBSCRIPTION_ID="$2"; shift 2 ;;
     --resource-group) RESOURCE_GROUP="$2"; shift 2 ;;
+    --vm-prefix) VM_PREFIX="$2"; shift 2 ;;
     --broker-indices) BROKER_INDICES="$2"; shift 2 ;;
     *) log_error "Unknown option: $1"; exit 1 ;;
   esac
@@ -62,8 +64,8 @@ az account set --subscription "$SUBSCRIPTION_ID" || {
 IFS=',' read -ra INDICES <<< "$BROKER_INDICES"
 
 for i in "${INDICES[@]}"; do
-  VM_NAME="kafka-t2-broker-$i"
-  NIC_NAME="kafka-t2-nic-$i"
+  VM_NAME="${VM_PREFIX}-broker-$i"
+  NIC_NAME="${VM_PREFIX}-nic-$i"
   DISK_NAME="kafka-data-disk-$i"
   
   # Delete VM

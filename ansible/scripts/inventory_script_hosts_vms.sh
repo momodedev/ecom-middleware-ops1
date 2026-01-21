@@ -11,8 +11,8 @@ fi
 resource_group="$1"
 admin_user="$2"
 
-# Get all VMs with names starting with "kafka-t2-broker-" sorted by name
-vm_names=$(az vm list -g "$resource_group" --query "[?starts_with(name, 'kafka-t2-broker-')].name" -o tsv | sort)
+# Get all VMs with names starting with "<resource_group>-broker-" sorted by name
+vm_names=$(az vm list -g "$resource_group" --query "[?starts_with(name, '${resource_group}-broker-')].name" -o tsv | sort)
 
 # Extract private IPs for each VM
 private_ips=()
@@ -26,7 +26,7 @@ for vm_name in $vm_names; do
 done
 
 echo "[kafka]"
-# Use 0-indexed naming to match Terraform/Azure VM names (kafka-t2-broker-0, kafka-t2-broker-1, etc.)
+# Use 0-indexed naming to match Terraform/Azure VM names (<resource_group>-broker-0, <resource_group>-broker-1, etc.)
 # Kafka node_id starts from 1 (KRaft requirement), but inventory names match VM indices
 index=0
 for ip in "${private_ips[@]}"; do

@@ -5,7 +5,7 @@
 
 set -e
 
-CLUSTER_NAME="${1:-shein-kafka-t2}"
+CLUSTER_NAME="${1:-kafka-cluster}"
 NAMESPACE="${2:-prod}"
 
 # Option 1: Generate UUID-based cluster ID (deterministic from name)

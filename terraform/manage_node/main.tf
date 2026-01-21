@@ -53,9 +53,12 @@ data "azurerm_subnet" "control" {
 
 locals {
   control_subnet_id = var.use_existing_control_network ? data.azurerm_subnet.control[0].id : azurerm_subnet.control[0].id
+  control_nsg_id    = var.control_nsg_id != "" ? var.control_nsg_id : (var.use_existing_control_network ? null : azurerm_network_security_group.example[0].id)
+  attach_control_nsg = var.control_nsg_id != "" || !var.use_existing_control_network
 }
 
 resource "azurerm_network_security_group" "example" {
+  count               = var.control_nsg_id != "" || var.use_existing_control_network ? 0 : 1
   name                = var.control_nsg_name
   location            = local.resource_group_location
   resource_group_name = local.resource_group_name
@@ -98,9 +101,58 @@ resource "azurerm_network_security_group" "example" {
 }
 
 resource "azurerm_subnet_network_security_group_association" "example" {
+  count                     = local.attach_control_nsg && !var.use_existing_control_network ? 1 : 0
   subnet_id                 = local.control_subnet_id
-  network_security_group_id = azurerm_network_security_group.example.id
+  network_security_group_id = local.control_nsg_id
 }
+
+# ==================== NAT Gateway Configuration ====================
+# NAT Gateway provides OUTBOUND internet access for control node
+# This allows Terraform, Ansible, package downloads without relying on VM public IP
+
+resource "azurerm_public_ip" "control_nat" {
+  count               = var.enable_control_nat_gateway ? 1 : 0
+  name                = var.control_nat_ip_name
+  location            = local.resource_group_location
+  resource_group_name = local.resource_group_name
+  allocation_method   = "Static"
+  sku                 = "Standard"
+  
+  tags = {
+    Environment = "production"
+    Component   = "control-nat-gateway"
+    Purpose     = "outbound-only"
+  }
+}
+
+resource "azurerm_nat_gateway" "control" {
+  count                  = var.enable_control_nat_gateway ? 1 : 0
+  name                   = var.control_nat_gateway_name
+  location               = local.resource_group_location
+  resource_group_name    = local.resource_group_name
+  sku_name               = "Standard"
+  idle_timeout_in_minutes = 10
+  
+  tags = {
+    Environment = "production"
+    Component   = "control-nat-gateway"
+    Purpose     = "outbound-internet-access"
+  }
+}
+
+resource "azurerm_nat_gateway_public_ip_association" "control" {
+  count               = var.enable_control_nat_gateway ? 1 : 0
+  nat_gateway_id       = azurerm_nat_gateway.control[0].id
+  public_ip_address_id = azurerm_public_ip.control_nat[0].id
+}
+
+resource "azurerm_subnet_nat_gateway_association" "control" {
+  count         = var.enable_control_nat_gateway ? 1 : 0
+  subnet_id      = local.control_subnet_id
+  nat_gateway_id = azurerm_nat_gateway.control[0].id
+}
+
+# ==================== Control Node Public IP (for SSH access) ====================
 
 resource "azurerm_public_ip" "control" {
   name                = "control-ip"

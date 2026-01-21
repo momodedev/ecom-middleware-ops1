@@ -5,12 +5,12 @@
 # Create network interfaces for each Kafka broker (NO public IPs)
 resource "azurerm_network_interface" "kafka_brokers" {
   count               = var.kafka_instance_count
-  name                = "kafka-t2-nic-${count.index}"
+  name                = "${var.resource_group_name}-nic-${count.index}"
   location            = local.kafka_rg_location
   resource_group_name = local.kafka_rg_name
 
   ip_configuration {
-    name                          = "kafka-t2-ip-config-${count.index}"
+    name                          = "${var.resource_group_name}-ip-config-${count.index}"
     subnet_id                     = local.kafka_subnet_id
     private_ip_address_allocation = "Dynamic"
     # CRITICAL: Explicitly set to null - no public IP for brokers
@@ -37,7 +37,7 @@ resource "azurerm_network_interface_security_group_association" "kafka_brokers" 
 # Note: Using individual VMs instead of VMSS for granular control and easier management
 resource "azurerm_linux_virtual_machine" "kafka_brokers" {
   count               = var.kafka_instance_count
-  name                = "kafka-t2-broker-${count.index}"
+  name                = "${var.resource_group_name}-broker-${count.index}"
   location            = local.kafka_rg_location
   resource_group_name = local.kafka_rg_name
   size                = var.kafka_vm_size

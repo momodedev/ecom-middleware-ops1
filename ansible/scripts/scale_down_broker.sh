@@ -9,7 +9,7 @@
 #   ./scale_down_broker.sh \
 #     --target-count 3 \
 #     --subscription-id <id> \
-#     --resource-group kafka-t2 \
+#     --resource-group <kafka-resource-group> \
 #     --ansible-user rockyadmin
 #
 # This script will:
