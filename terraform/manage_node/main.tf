@@ -63,7 +63,7 @@ resource "azurerm_network_security_group" "example" {
   resource_group_name = local.resource_group_name
 
   security_rule {
-    name                       = "test123"
+    name                       = "ssh"
     priority                   = 100
     direction                  = "Inbound"
     access                     = "Allow"
@@ -100,7 +100,7 @@ resource "azurerm_network_security_group" "example" {
 }
 
 resource "azurerm_subnet_network_security_group_association" "example" {
-  count                     = local.attach_control_nsg && !var.use_existing_control_network ? 1 : 0
+  count                     = !var.use_existing_control_network && local.attach_control_nsg ? 1 : 0
   subnet_id                 = local.control_subnet_id
   network_security_group_id = local.control_nsg_id
 }
