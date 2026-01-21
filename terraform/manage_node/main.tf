@@ -31,7 +31,7 @@ resource "azurerm_virtual_network" "control" {
 data "azurerm_virtual_network" "control" {
   count               = var.use_existing_control_network ? 1 : 0
   name                = var.control_vnet_name
-  resource_group_name = var.control_network_resource_group_name != "" ? var.control_network_resource_group_name : var.resource_group_name
+  resource_group_name = var.resource_group_name
 }
 
 resource "azurerm_subnet" "control" {
@@ -47,7 +47,7 @@ data "azurerm_subnet" "control" {
   count                = var.use_existing_control_network ? 1 : 0
   name                 = var.control_subnet_name
   virtual_network_name = var.control_vnet_name
-  resource_group_name  = var.control_network_resource_group_name != "" ? var.control_network_resource_group_name : var.resource_group_name
+  resource_group_name  = var.resource_group_name
 }
 
 locals {

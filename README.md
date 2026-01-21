@@ -67,7 +67,6 @@ cd terraform/manage_node
 # Create a secret.tfvars file with your configuration
 cat > secret.tfvars <<EOF
 ARM_SUBSCRIPTION_ID       = "8d6bd1eb-ae31-4f2c-856a-0f8e47115c4b"
-tf_cmd_type              = "apply"
 kafka_instance_count     = 3
 deploy_mode              = "together"  # or "separate"
 kafka_vm_size            = "Standard_D4as_v5"
@@ -158,7 +157,6 @@ export ARM_TENANT_ID="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
 | `ssh_public_key_path` | string | `"~/.ssh/id_rsa.pub"` | Path to SSH public key file |
 | `ssh_private_key_path` | string | `"~/.ssh/id_rsa"` | Path to SSH private key file (sensitive) |
 | `ARM_SUBSCRIPTION_ID` | string | - | Azure subscription ID |
-| `tf_cmd_type` | string | `"apply"` | Terraform command type (`apply` or `destroy`) |
 | `ansible_run_id` | string | `""` | String to force Ansible playbook rerun |
 | `deploy_mode` | string | `"together"` | Deployment mode: `"together"` or `"separate"` |
 
@@ -204,9 +202,6 @@ The `is_public` variable controls how Kafka brokers are exposed:
 ```hcl
 # Required
 ARM_SUBSCRIPTION_ID       = "8d6bd1eb-ae31-4f2c-856a-0f8e47115c4b"
-
-# Deployment behavior
-tf_cmd_type              = "apply"
 deploy_mode              = "together"  # Change to "separate" for manual deployment
 
 # Kafka cluster sizing

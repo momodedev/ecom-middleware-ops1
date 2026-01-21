@@ -27,12 +27,6 @@ variable "use_existing_control_network" {
   description = "Reuse an existing control-plane VNet/subnet instead of creating new network resources."
 }
 
-variable "control_network_resource_group_name" {
-  type        = string
-  default     = ""
-  description = "Resource group containing the existing control VNet/subnet (defaults to resource_group_name when empty)."
-}
-
 variable "control_subnet_name" {
   type        = string
   default     = "control-subnet"
@@ -126,11 +120,6 @@ variable "enable_availability_zones" {
 
 variable "ARM_SUBSCRIPTION_ID" {
   description = "subscription id"
-  type        = string
-}
-
-variable "tf_cmd_type" {
-  description = "terraform command"
   type        = string
 }
 
