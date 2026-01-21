@@ -124,12 +124,6 @@ variable "enable_availability_zones" {
   description = "Enable Availability Zones for Kafka brokers. Set to false for regions without AZs (westus, northcentralus, etc.)."
 }
 
-variable "github_token" {
-  description = "github read token"
-  type        = string
-  sensitive   = true
-}
-
 variable "ARM_SUBSCRIPTION_ID" {
   description = "subscription id"
   type        = string

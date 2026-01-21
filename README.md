@@ -66,7 +66,6 @@ cd terraform/manage_node
 
 # Create a secret.tfvars file with your configuration
 cat > secret.tfvars <<EOF
-github_token              = "ghp_xxxxx..."
 ARM_SUBSCRIPTION_ID       = "8d6bd1eb-ae31-4f2c-856a-0f8e47115c4b"
 tf_cmd_type              = "apply"
 kafka_instance_count     = 3
@@ -158,7 +157,6 @@ export ARM_TENANT_ID="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
 | `kafka_data_disk_throughput_mbps` | number | `125` | Provisioned throughput (MB/s) for data disk |
 | `ssh_public_key_path` | string | `"~/.ssh/id_rsa.pub"` | Path to SSH public key file |
 | `ssh_private_key_path` | string | `"~/.ssh/id_rsa"` | Path to SSH private key file (sensitive) |
-| `github_token` | string | - | GitHub token for repository access (sensitive) |
 | `ARM_SUBSCRIPTION_ID` | string | - | Azure subscription ID |
 | `tf_cmd_type` | string | `"apply"` | Terraform command type (`apply` or `destroy`) |
 | `ansible_run_id` | string | `""` | String to force Ansible playbook rerun |
@@ -205,7 +203,6 @@ The `is_public` variable controls how Kafka brokers are exposed:
 
 ```hcl
 # Required
-github_token              = "ghp_xxxxx..."
 ARM_SUBSCRIPTION_ID       = "8d6bd1eb-ae31-4f2c-856a-0f8e47115c4b"
 
 # Deployment behavior
@@ -943,8 +940,6 @@ environment            = "prod"
 # terraform/manage_node/secret.tfvars
 resource_group_name      = "kafka_t1"
 resource_group_location  = "eastus2"
-keyvault_name           = "kafka-keyvault"
-github_token            = "ghp_xxxxx..."
 ```
 
 ### Custom Kafka Configuration
@@ -968,7 +963,6 @@ When you run `terraform apply -var-file='secret.tfvars'` in `terraform/manage_no
 ### Stage 1: Infrastructure Creation (Terraform)
 - Resource groups: separate for control node and Kafka cluster
 - Networking: VNet, subnets, NSGs, NAT gateway for Kafka brokers
-- Azure Key Vault for secrets (GitHub token)
 - Control VM (Ubuntu 22.04, configurable VM size)
 - Public IP for control node, private IPs for Kafka brokers
 - Managed identity with Contributor role
@@ -976,8 +970,7 @@ When you run `terraform apply -var-file='secret.tfvars'` in `terraform/manage_no
 ### Stage 2: Provisioner Execution (on Control VM)
 - System setup: Terraform, Ansible, Azure CLI, jq, Python3-venv
 - SSH key generation (ED25519)
-- GitHub token retrieval from Key Vault
-- Repository cloning with auto-update from GitHub
+- Cloud-init bootstrap for VM initialization
 
 ### Stage 3: Kafka Deployment (conditional on deploy_mode)
 

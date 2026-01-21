@@ -40,7 +40,6 @@ resource "azurerm_subnet" "control" {
   resource_group_name          = local.resource_group_name
   virtual_network_name         = azurerm_virtual_network.control[0].name
   address_prefixes             = ["172.17.1.0/24"]
-  service_endpoints            = ["Microsoft.KeyVault"]
   default_outbound_access_enabled = false
 }
 
@@ -206,8 +205,14 @@ resource "azurerm_linux_virtual_machine" "example" {
     version   = "latest"
   }
 
+  # Bootstrap control node with cloud-init (Azure best practice)
+  custom_data = base64encode(templatefile("${path.module}/cloud-init.tpl", {}))
+
   lifecycle {
-    ignore_changes = [bypass_platform_safety_checks_on_user_schedule_enabled]
+    ignore_changes = [
+      bypass_platform_safety_checks_on_user_schedule_enabled,
+      custom_data  # Prevent recreation on template changes
+    ]
   }
   # provisioner "remote-exec" {
   #   when    = destroy
@@ -224,15 +229,6 @@ resource "azurerm_role_assignment" "control" {
   role_definition_name = "Contributor"
   principal_id       = azurerm_linux_virtual_machine.example.identity[0].principal_id
 }
-
-
-resource "azurerm_role_assignment" "user" {
-  count                = var.deploy_mode != "separate" ? 1 : 0
-  scope                = azurerm_key_vault.example[0].id
-  role_definition_name = "Key Vault Secrets Officer"
-  principal_id         = data.azurerm_client_config.current.object_id
-}
-
 
 resource "null_resource" "deploy_private_vms"{
   # Deploys Kafka broker VMs (individual VMs, not VMSS)

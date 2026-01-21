@@ -2,7 +2,6 @@ kafka_vnet_name                         = "vnet-t1"   # CHANGE to your existing 
 kafka_subnet_name                       = "default" # CHANGE to your existing subnet name
 control_vnet_name                       = "vnet-t1"   # same VNet for control + Kafka
 control_subnet_name                     = "default" # reuse same subnet for control (or set a dedicated subnet name if it exists)
-github_token         = ""
 ARM_SUBSCRIPTION_ID  = "8d6bd1eb-ae31-4f2c-856a-0f8e47115c4b" #"8d6bd1eb-ae31-4f2c-856a-0f8e47115c4b"
 tf_cmd_type          = "apply"
 kafka_instance_count = 3
