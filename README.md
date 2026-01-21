@@ -254,19 +254,6 @@ terraform apply -var-file=secret.tfvars
 - Rapid environment provisioning
 - Testing and development
 
-**Architecture:**
-```
-Control Node (Public IP)
-    ↓ (auto-executes)
-private_vms_deploy.sh
-    ↓
-Kafka Cluster Terraform
-    ↓
-Ansible Playbooks
-    ↓
-Kafka Brokers (Private IPs) + Monitoring
-```
-
 ---
 
 ### Mode 2: Separate (Manual Kafka Deployment)
@@ -296,35 +283,19 @@ terraform apply -var-file=secret.tfvars
 CONTROL_IP=$(terraform output -raw control_public_ip)
 ssh azureadmin@$CONTROL_IP
 
-# 3. Manually trigger Kafka deployment
-cd ~/ecom-middleware-ops/terraform/manage_node
-./private_vms_deploy.sh \
-  8d6bd1eb-ae31-4f2c-856a-0f8e47115c4b \  # subscription_id
-  apply \                                   # tf_cmd_type
-  3 \                                       # kafka_instance_count
-  3000 \                                    # kafka_data_disk_iops
-  125 \                                     # kafka_data_disk_throughput_mbps
-  Standard_D4as_v5 \                        # kafka_vm_size
-  "" \                                      # ansible_run_id
-  kafka_t1 \                              # kafka_resource_group_name
-  westus                                   # resource_group_location
+# 3. Deploy Kafka cluster from control node
+cd ~/ecom-middleware-ops/terraform/kafka
+terraform init
+terraform plan -var-file='../manage_node/secret.tfvars'
+terraform apply -var-file='../manage_node/secret.tfvars' -auto-approve
 
-# 4. Validate deployment
+# 4. Configure Kafka brokers with Ansible
 cd ~/ecom-middleware-ops/ansible
-./scripts/kafka_health_check.sh
-```
+source ~/ansible-venv/bin/activate
+ansible-playbook -i inventory/kafka_hosts playbooks/deploy_kafka_playbook.yaml
 
-**Architecture:**
-```
-Control Node (Public IP)
-    ↓ (manual SSH)
-Customer runs private_vms_deploy.sh
-    ↓
-Kafka Cluster Terraform
-    ↓
-Ansible Playbooks
-    ↓
-Kafka Brokers (Private IPs) + Monitoring
+# 5. Validate deployment
+./scripts/kafka_health_check.sh
 ```
 
 ---
@@ -417,10 +388,8 @@ ecom-middleware-ops/
 │   └── manage_node/                   # Control node setup
 │       ├── provider.tf
 │       ├── main.tf
-│       ├── keyvault.tf
 │       ├── variables.tf
-│       ├── private_vms_init.sh        # Init script for control VM
-│       ├── private_vms_deploy.sh      # Deploy script for Kafka
+│       ├── cloud-init.tpl               # Cloud-init bootstrap template
 │       ├── secret.tfvars
 │       └── terraform.tfvars.example
 ├── ansible/
@@ -963,7 +932,7 @@ When you run `terraform apply -var-file='secret.tfvars'` in `terraform/manage_no
 ### Stage 1: Infrastructure Creation (Terraform)
 - Resource groups: separate for control node and Kafka cluster
 - Networking: VNet, subnets, NSGs, NAT gateway for Kafka brokers
-- Control VM (Ubuntu 22.04, configurable VM size)
+- Control VM (Rocky Linux 9, configurable VM size)
 - Public IP for control node, private IPs for Kafka brokers
 - Managed identity with Contributor role
 
@@ -975,17 +944,19 @@ When you run `terraform apply -var-file='secret.tfvars'` in `terraform/manage_no
 ### Stage 3: Kafka Deployment (conditional on deploy_mode)
 
 **If deploy_mode="together":**
-- `private_vms_deploy.sh` runs automatically
-- Generates Terraform variables (`sub_id.tfvars`)
-- Provisions Kafka broker infrastructure via Terraform
-- Configures brokers using Ansible roles (KRaft combined mode)
-- Deploys Prometheus/Grafana monitoring stack
+- Cloud-init completes automatically on control node startup
+- Control node has Terraform, Ansible, and Azure CLI configured
+- Manual SSH connection needed to trigger Kafka deployment
+- Run Terraform to provision Kafka broker VMs
+- Ansible configures brokers using KRaft combined mode
+- Prometheus/Grafana monitoring stack configured
 - Updates all brokers with dynamic `controller.quorum.voters`
 
 **If deploy_mode="separate":**
 - Provisioner execution skipped
+- Cloud-init completes automatically on control node startup
 - Customer manually SSHs to control node
-- Customer runs `private_vms_deploy.sh` with desired parameters
+- Customer runs Terraform and Ansible commands to deploy Kafka
 - Full control over deployment timing and configuration
 
 ### Stage 4: Completion
@@ -1180,17 +1151,20 @@ export KAFKA_VM_ZONE="1"
 export ENABLE_AVAILABILITY_ZONES=true
 export USE_PREMIUM_V2_DISKS=true
 
-./private_vms_deploy.sh "8d6bd1eb-ae31-4f2c-856a-0f8e47115c4b" apply 3 3000 125 Standard_D8ls_v6 "" kafka_t1 westus3
+cd ~/ecom-middleware-ops/terraform/kafka
+terraform init
+terraform plan -var-file=sub_id.tfvars
+terraform apply -var-file=sub_id.tfvars -auto-approve
 
-export USE_EXISTING_KAFKA_NETWORK=true
-export EXISTING_KAFKA_VNET_RESOURCE_GROUP_NAME="kafka_t1"
-export KAFKA_VNET_NAME="vnet-t1"
-export KAFKA_SUBNET_NAME="default"
-export ENABLE_KAFKA_NAT_GATEWAY=false
-export KAFKA_NSG_ID="/subscriptions/8d6bd1eb-ae31-4f2c-856a-0f8e47115c4b/resourceGroups/kafka_t1/providers/Microsoft.Network/networkSecurityGroups/control-nsg"
-export ENABLE_VNET_PEERING=false
+cd ~/ecom-middleware-ops/ansible
+source ~/ansible-venv/bin/activate
+ansible-playbook -i inventory/kafka_hosts playbooks/deploy_kafka_playbook.yaml
+
+# Scale down or destroy
 export KAFKA_VM_ZONE="1"
 export ENABLE_AVAILABILITY_ZONES=true
 export USE_PREMIUM_V2_DISKS=true
 
-./private_vms_deploy.sh "8d6bd1eb-ae31-4f2c-856a-0f8e47115c4b" destroy 3 3000 125 Standard_D8ls_v6 "" kafka_t1 westus3
+cd ~/ecom-middleware-ops/terraform/kafka
+terraform destroy -var-file=sub_id.tfvars -auto-approve
+```

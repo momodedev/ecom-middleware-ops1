@@ -69,7 +69,7 @@ variable "control_nat_gateway_name" {
   description = "Name of the NAT gateway for control subnet outbound internet connectivity."
 }
 
-# Kafka network pass-through (used by private_vms_deploy.sh)
+# Kafka network configuration
 variable "use_existing_kafka_network" {
   type        = bool
   default     = false

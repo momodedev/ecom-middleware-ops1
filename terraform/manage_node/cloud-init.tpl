@@ -1,31 +1,38 @@
 #cloud-config
-# Cloud-init configuration for control node initialization
-# Replaces private_vms_init.sh with idempotent, Azure-native bootstrap
+# Cloud-init configuration for control node initialization (Rocky Linux 9)
+# Azure-native bootstrap template for Terraform, Ansible, and Azure CLI setup
 
 package_update: true
 package_upgrade: false
 
 packages:
   - jq
-  - python3-venv
+  - python3
   - python3-pip
+  - python3-virtualenv
   - curl
   - wget
   - gnupg
 
 runcmd:
-  # Disable UFW to ensure Prometheus/Grafana ports are accessible
-  - systemctl disable ufw
-  - systemctl stop ufw
+  # Disable firewalld to ensure Prometheus/Grafana ports are accessible
+  - systemctl disable firewalld
+  - systemctl stop firewalld
   
-  # Install Terraform from HashiCorp repo
-  - wget -O- https://apt.releases.hashicorp.com/gpg | gpg --dearmor -o /usr/share/keyrings/hashicorp-archive-keyring.gpg
-  - echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrkins/hashicorp-archive-keyring.gpg] https://apt.releases.hashicorp.com $(lsb_release -cs) main" | tee /etc/apt/sources.list.d/hashicorp.list
-  - apt update
-  - apt install -y terraform
+  # Install Terraform from HashiCorp repo (Rocky Linux)
+  - dnf install -y dnf-plugins-core
+  - dnf config-manager --add-repo https://rpm.releases.hashicorp.com/RHEL/hashicorp.repo
+  - dnf install -y terraform
   
-  # Install Azure CLI
-  - curl -sL https://aka.ms/InstallAzureCLIDeb | bash
+  # Install Azure CLI (Rocky Linux)
+  - rpm --import https://packages.microsoft.com/keys/microsoft.asc
+  - echo "[azure-cli]" | tee /etc/yum.repos.d/azure-cli.repo
+  - echo "name=Azure CLI" | tee -a /etc/yum.repos.d/azure-cli.repo
+  - echo "baseurl=https://packages.microsoft.com/yumrepos/azure-cli" | tee -a /etc/yum.repos.d/azure-cli.repo
+  - echo "enabled=1" | tee -a /etc/yum.repos.d/azure-cli.repo
+  - echo "gpgcheck=1" | tee -a /etc/yum.repos.d/azure-cli.repo
+  - echo "gpgkey=https://packages.microsoft.com/keys/microsoft.asc" | tee -a /etc/yum.repos.d/azure-cli.repo
+  - dnf install -y azure-cli
   
   # Setup Ansible venv as azureadmin user
   - su - azureadmin -c 'python3 -m venv /home/azureadmin/ansible-venv'

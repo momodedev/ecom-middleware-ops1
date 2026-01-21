@@ -199,10 +199,16 @@ resource "azurerm_linux_virtual_machine" "example" {
   }
 
   source_image_reference {
-    publisher = "Canonical"
-    offer     = "0001-com-ubuntu-server-jammy"
-    sku       = "22_04-lts-gen2"
-    version   = "latest"
+    publisher = "resf"
+    offer     = "rockylinux-x86_64"
+    sku       = "9-base"
+    version   = "9.6.20250531"
+  }
+
+  plan {
+    publisher = "resf"
+    product   = "rockylinux-x86_64"
+    name      = "9-base"
   }
 
   # Bootstrap control node with cloud-init (Azure best practice)
@@ -230,66 +236,5 @@ resource "azurerm_role_assignment" "control" {
   principal_id       = azurerm_linux_virtual_machine.example.identity[0].principal_id
 }
 
-resource "null_resource" "deploy_private_vms"{
-  # Deploys Kafka broker VMs (individual VMs, not VMSS)
-  # Only executes when deploy_mode is set to "together"
-  count = var.deploy_mode == "together" ? 1 : 0
-  
-  triggers = { 
-    always_run = "${timestamp()}"
-  }
-  connection {
-    type = "ssh"
-    host = azurerm_linux_virtual_machine.example.public_ip_address
-    user = "azureadmin"
-    private_key = file(pathexpand(var.ssh_private_key_path))
-  }
-  provisioner "remote-exec" {
-    inline = [
-      "KAFKA_VM_ZONE=${var.kafka_vm_zone} ENABLE_AVAILABILITY_ZONES=${var.enable_availability_zones} USE_EXISTING_KAFKA_NETWORK=${var.use_existing_kafka_network} EXISTING_KAFKA_VNET_RESOURCE_GROUP_NAME=${var.existing_kafka_vnet_resource_group_name} KAFKA_VNET_NAME=${var.kafka_vnet_name} KAFKA_SUBNET_NAME=${var.kafka_subnet_name} ENABLE_KAFKA_NAT_GATEWAY=${var.enable_kafka_nat_gateway} KAFKA_NSG_ID=${var.kafka_nsg_id} ./private_vms_deploy.sh ${var.ARM_SUBSCRIPTION_ID} ${var.tf_cmd_type} ${var.kafka_instance_count} ${var.kafka_data_disk_iops} ${var.kafka_data_disk_throughput_mbps} ${var.kafka_vm_size} ${var.ansible_run_id} ${var.kafka_resource_group_name} ${var.resource_group_location}",
-    ]
-  }
-  depends_on = [null_resource.Init_private_vms]
-}
 
 
-
-resource "null_resource" "Init_private_vms"{
-  # Initialize control node for Kafka VM deployment (individual VMs, not VMSS)
-  # Skip this provisioner when deploy_mode="separate" (control-only mode)
-  count = var.deploy_mode != "separate" ? 1 : 0
-  
-  triggers = { 
-    trigger = join(",", azurerm_linux_virtual_machine.example.public_ip_addresses) 
-  }
-  connection {
-    type = "ssh"
-    host = azurerm_linux_virtual_machine.example.public_ip_address
-    user = "azureadmin"
-    private_key = file(pathexpand(var.ssh_private_key_path))
-  }
-  provisioner "remote-exec" {
-    inline = [
-      "chmod +x private_vms_init.sh",
-      "chmod +x private_vms_deploy.sh",
-      "./private_vms_init.sh",
-    ]
-  }
-  depends_on = [azurerm_role_assignment.control, azurerm_linux_virtual_machine.example]
-}
-
-# resource "azurerm_virtual_machine_extension" "example" {
-#   name                 = "hostname"
-#   virtual_machine_id   = azurerm_linux_virtual_machine.example.id
-#   publisher            = "Microsoft.Azure.Extensions"
-#   type                 = "CustomScript"
-#   type_handler_version = "2.0"
-
-#   protected_settings = <<PROT
-#   {
-#       "script": "${base64encode(templatefile("private_vms_init.sh", { sub_id=var.ARM_SUBSCRIPTION_ID }))}"
-#   }
-#   PROT
-
-#   depends_on = [azurerm_role_assignment.control, azurerm_role_assignment.keyvault, azurerm_key_vault_secret.example]
-# }
