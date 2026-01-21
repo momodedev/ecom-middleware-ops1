@@ -1,4 +1,15 @@
 ---
+# ==================== PRE-FLIGHT CHECKS ====================
+# Wait for cloud-init to complete on the VM
+- name: Wait for cloud-init to complete
+  shell: "cloud-init status --wait"
+  register: cloud_init_wait
+  retries: 60
+  delay: 5
+  until: cloud_init_wait.rc == 0
+  ignore_errors: yes
+  tags: always
+
 # ==================== SETENV TASKS (Setup Environment) ====================
 # Install required packages
 - name: Install required packages
@@ -31,10 +42,30 @@
   when: "'firewalld.service' in ansible_facts.services"
   become: yes
 
+- name: Check if Kafka is already installed
+  stat:
+    path: "{{ kafka_workspace }}/bin/kafka-storage.sh"
+  register: kafka_binary_check
+
+- name: Debug - Kafka binary check result
+  debug:
+    msg: "Kafka binary check for {{ inventory_hostname }}: exists={{ kafka_binary_check.stat.exists }}"
+  tags: always
+
 - name: Check kafka directory
   stat:
     path: "{{ kafka_workspace }}"
   register: directory_check
+
+- name: Clean incomplete Kafka installation if needed
+  file:
+    path: "{{ kafka_workspace }}"
+    state: absent
+  when: 
+    - directory_check.stat.exists
+    - directory_check.stat.isdir
+    - not kafka_binary_check.stat.exists
+  register: kafka_cleanup
 
 - name: Download and unpack kafka
   unarchive:
@@ -42,22 +73,42 @@
     dest: "{{ kafka_home }}"
     owner: kafka
     group: kafka
-    creates: "{{ kafka_workspace }}"
     mode: 0755
     remote_src: yes
+  when: not kafka_binary_check.stat.exists or kafka_cleanup is changed
+  register: kafka_download
+  retries: 5
+  delay: 15
+  until: kafka_download is succeeded
   
-- name: Find kafka folder
+- name: Find kafka folder after extraction
   find: 
     paths: "{{ kafka_home }}"
     pattern: "kafka_*"
     file_type: directory
   register: directory_name
+  when: not kafka_binary_check.stat.exists or kafka_cleanup is changed
 
-- name: Rename kafka folder
-  shell: "mv {{ directory_name.files[0].path }} {{ kafka_workspace }}"
-  when: not directory_check.stat.exists
+- name: Rename kafka folder to standard path
+  shell: |
+    if [ -d "{{ directory_name.files[0].path }}" ]; then
+      mv {{ directory_name.files[0].path }} {{ kafka_workspace }}
+      echo "Kafka moved to {{ kafka_workspace }}"
+    fi
+  when: 
+    - (not kafka_binary_check.stat.exists or kafka_cleanup is changed)
+    - directory_name.files | length > 0
   args:
     creates: "{{ kafka_workspace }}"
+  register: kafka_rename
+
+- name: Verify Kafka installation success
+  stat:
+    path: "{{ kafka_workspace }}/bin/kafka-storage.sh"
+  register: kafka_verify
+  failed_when: not kafka_verify.stat.exists
+  retries: 3
+  delay: 5
 
 - name: Ensure Kafka data directory exists
   file:
@@ -201,6 +252,9 @@
   command: "{{ kafka_workspace }}/bin/kafka-storage.sh random-uuid"
   register: kafka_cluster_uuid
   run_once: true
+  retries: 3
+  delay: 5
+  until: kafka_cluster_uuid is succeeded
 
 - name: Share generated cluster UUID
   when: not kafka_meta_properties.stat.exists
@@ -210,9 +264,41 @@
   delegate_to: localhost
   delegate_facts: true
 
+- name: Pre-format diagnostic - List kafka workspace contents
+  shell: "ls -la {{ kafka_workspace }}/"
+  register: kafka_ws_list
+  tags: always
+  
+- name: Pre-format diagnostic - Show kafka workspace contents
+  debug:
+    var: kafka_ws_list.stdout_lines
+  tags: always
+
+- name: Verify Kafka binaries exist before formatting
+  stat:
+    path: "{{ kafka_workspace }}/bin/kafka-storage.sh"
+  register: kafka_storage_binary
+  failed_when: not kafka_storage_binary.stat.exists
+  
+- name: Verify Kafka config exists before formatting
+  stat:
+    path: "{{ kafka_workspace }}/config/server.properties"
+  register: kafka_config_file
+  failed_when: not kafka_config_file.stat.exists
+
+- name: Verify data directory is mounted and accessible
+  stat:
+    path: "{{ kafka_data_dir }}"
+  register: kafka_data_dir_check
+  failed_when: not kafka_data_dir_check.stat.exists
+
 - name: Format Kafka storage directories
   become_user: kafka
   command: "{{ kafka_workspace }}/bin/kafka-storage.sh format --config {{ kafka_workspace }}/config/server.properties --cluster-id {{ hostvars['localhost']['kafka_cluster_id'] }} --ignore-formatted"
+  register: kafka_format_result
+  retries: 2
+  delay: 5
+  until: kafka_format_result is succeeded
 
 - name: Create Kafka systemd unit
   template:

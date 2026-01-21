@@ -25,20 +25,28 @@ runcmd:
   - systemctl enable firewalld
   - systemctl start firewalld
   
-  # Create required directories
+  # Create required directories with proper ownership
   - mkdir -p /opt/kafka
   - mkdir -p /data/kafka
   - mkdir -p /var/log/kafka
   
+  # Create kafka user and group early (Ansible will reuse)
+  - groupadd -f kafka || true
+  - useradd -r -g kafka -s /bin/bash kafka || true
+  
   # Format and mount data disk if attached
   - |
-    if [ -b /dev/sdc ] && [ ! -d /data/kafka ] || ! mountpoint -q /data/kafka; then
-      echo "Formatting and mounting data disk..."
-      mkfs.ext4 -F /dev/sdc || true
-      mkdir -p /data/kafka
-      mount /dev/sdc /data/kafka || true
-      echo "/dev/sdc /data/kafka ext4 defaults,nofail 0 2" >> /etc/fstab
-      chmod 755 /data/kafka
+    if [ -b /dev/sdc ]; then
+      if ! mountpoint -q /data/kafka; then
+        echo "Formatting and mounting data disk..."
+        mkfs.ext4 -F /dev/sdc 2>/dev/null || true
+        mount /dev/sdc /data/kafka 2>/dev/null || true
+        if ! grep -q "/dev/sdc" /etc/fstab; then
+          echo "/dev/sdc /data/kafka ext4 defaults,nofail 0 2" >> /etc/fstab
+        fi
+        chmod 755 /data/kafka
+        chown kafka:kafka /data/kafka
+      fi
     fi
   
   # Set up Python environment for Ansible
