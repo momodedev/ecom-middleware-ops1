@@ -167,3 +167,27 @@ variable "ssh_public_key_path" {
   type        = string
   default     = "~/.ssh/id_rsa.pub"
 }
+
+variable "repository_name" {
+  description = "Name of the repository directory. Used to construct full paths for Ansible working directories."
+  type        = string
+  default     = "ecom-middleware-ops"
+}
+
+variable "control_node_user" {
+  description = "Username for the control node VM. Used to construct home directory paths."
+  type        = string
+  default     = "azureadmin"
+}
+
+variable "ansible_venv_path" {
+  description = "Path to Ansible virtual environment on control node. Defaults to /home/{control_node_user}/ansible-venv."
+  type        = string
+  default     = ""  # Will be computed from control_node_user if empty
+}
+
+variable "repository_base_dir" {
+  description = "Base directory path where repository is cloned on control node. Defaults to /home/{control_node_user}/{repository_name}."
+  type        = string
+  default     = ""  # Will be computed from control_node_user and repository_name if empty
+}
