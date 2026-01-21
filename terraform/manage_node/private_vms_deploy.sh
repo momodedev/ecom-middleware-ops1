@@ -2,6 +2,45 @@
 # Deploy Kafka VMs using Terraform
 # This script runs on the control node to deploy Kafka broker infrastructure
 # (renamed from private_vmss_deploy.sh - now using VMs instead of VMSS for better control)
+#
+# Usage: ./private_vms_deploy.sh <subscription-id> <terraform-command> [optional-params]
+#
+# Parameters:
+#   $1 = ARM Subscription ID (required)
+#   $2 = Terraform command: plan, apply, destroy (required)
+#   $3 = kafka_instance_count (default: 3)
+#   $4 = kafka_data_disk_iops (default: 3000)
+#   $5 = kafka_data_disk_throughput_mbps (default: 125)
+#   $6 = kafka_vm_size (default: Standard_D8ls_v6)
+#   $7 = ANSIBLE_RUN_ID (optional, triggers playbook rerun)
+#   $8 = resource_group_name (optional)
+#   $9 = resource_group_location (optional)
+#
+# Environment Variables (optional):
+#   IS_PUBLIC=true|false                        # Expose brokers with public IPs (default: false)
+#   ENABLE_KAFKA_NAT_GATEWAY=true|false         # Create NAT gateway (default: false)
+#   ENABLE_VNET_PEERING=true|false              # Enable VNet peering (default: false)
+#   ENABLE_AVAILABILITY_ZONES=true|false        # Enable availability zones (default: true)
+#   USE_PREMIUM_V2_DISKS=true|false             # Use Premium SSD v2 (default: auto)
+#   USE_EXISTING_KAFKA_NETWORK=true|false       # Reuse existing VNet (default: false)
+#   KAFKA_VM_ZONE=1|2|3                         # Availability zone (default: empty)
+#   EXISTING_KAFKA_VNET_RESOURCE_GROUP_NAME=""  # RG with existing VNet
+#   KAFKA_VNET_NAME=""                          # Existing VNet name
+#   KAFKA_SUBNET_NAME=""                        # Existing subnet name
+#   KAFKA_NSG_ID=""                             # Existing NSG resource ID
+#
+# Examples:
+#   # Deploy with public IPs (testing)
+#   export IS_PUBLIC=true
+#   ./private_vms_deploy.sh "8d6bd1eb-ae31-4f2c-856a-0f8e47115c4b" apply 3
+#
+#   # Deploy with NAT gateway (production)
+#   export IS_PUBLIC=false
+#   export ENABLE_KAFKA_NAT_GATEWAY=true
+#   ./private_vms_deploy.sh "8d6bd1eb-ae31-4f2c-856a-0f8e47115c4b" apply 3
+#
+#   # Destroy Kafka infrastructure
+#   ./private_vms_deploy.sh "8d6bd1eb-ae31-4f2c-856a-0f8e47115c4b" destroy 3
 
 set -x  # Enable command echoing for debugging
 
@@ -86,6 +125,9 @@ if [ -n "${KAFKA_NSG_ID}" ]; then
 fi
 if [ -n "${ENABLE_VNET_PEERING}" ]; then
     echo "enable_vnet_peering=${ENABLE_VNET_PEERING}" >> sub_id.tfvars
+fi
+if [ -n "${IS_PUBLIC}" ]; then
+    echo "is_public=${IS_PUBLIC}" >> sub_id.tfvars
 fi
 terraform init
 # Show the rendered vars for debugging
