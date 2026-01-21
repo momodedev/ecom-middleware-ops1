@@ -2,7 +2,24 @@
 # This file defines individual virtual machines for Kafka brokers
 # (renamed from vmss.tf - now using VMs instead of VMSS for better control)
 
-# Create network interfaces for each Kafka broker (NO public IPs)
+# Optional public IPs for brokers when is_public=true
+resource "azurerm_public_ip" "kafka_brokers" {
+  count               = var.is_public ? var.kafka_instance_count : 0
+  name                = "${var.resource_group_name}-pip-${count.index}"
+  location            = local.kafka_rg_location
+  resource_group_name = local.kafka_rg_name
+  allocation_method   = "Static"
+  sku                 = "Standard"
+
+  tags = {
+    Environment = "production"
+    Component   = "kafka-broker"
+    Index       = count.index
+    Purpose     = "public-access"
+  }
+}
+
+# Create network interfaces for each Kafka broker (public IP optional)
 resource "azurerm_network_interface" "kafka_brokers" {
   count               = var.kafka_instance_count
   name                = "${var.resource_group_name}-nic-${count.index}"
@@ -13,16 +30,14 @@ resource "azurerm_network_interface" "kafka_brokers" {
     name                          = "${var.resource_group_name}-ip-config-${count.index}"
     subnet_id                     = local.kafka_subnet_id
     private_ip_address_allocation = "Dynamic"
-    # CRITICAL: Explicitly set to null - no public IP for brokers
-    # All outbound traffic goes through NAT gateway
-    public_ip_address_id          = null
+    public_ip_address_id          = var.is_public ? azurerm_public_ip.kafka_brokers[count.index].id : null
   }
 
   tags = {
     Environment = "production"
     Component   = "kafka-broker"
     Index       = count.index
-    PublicIP    = "none"
+    PublicIP    = var.is_public ? "public" : "none"
   }
 }
 
@@ -155,6 +170,12 @@ resource "azurerm_virtual_machine_data_disk_attachment" "kafka_data_disk" {
 output "kafka_private_ips" {
   description = "Private IP addresses assigned to Kafka brokers."
   value       = azurerm_linux_virtual_machine.kafka_brokers[*].private_ip_address
+}
+
+# Output public IPs when is_public=true
+output "kafka_public_ips" {
+  description = "Public IP addresses assigned to Kafka brokers (only when is_public=true)."
+  value       = var.is_public ? azurerm_public_ip.kafka_brokers[*].ip_address : []
 }
 
 # Launch Ansible playbook after all VMs are ready

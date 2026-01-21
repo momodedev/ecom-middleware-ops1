@@ -181,6 +181,26 @@ The `deploy_mode` variable controls deployment behavior:
 - Customer manually triggers Kafka deployment via SSH
 - **Use Case**: Manual staging, step-by-step validation, custom workflows
 
+### Kafka Broker Network Configuration
+
+The `is_public` variable controls how Kafka brokers are exposed:
+
+**Public Brokers (`is_public=true`)**
+- Each broker gets a Static Public IP
+- Brokers are accessible from the internet
+- NAT gateway is automatically disabled
+- **Use Case**: Development, testing, external clients
+- **Security**: Requires proper NSG rules to restrict inbound traffic
+
+**Private Brokers (`is_public=false`, Default)**
+- Brokers use only Private IPs
+- NAT gateway provides outbound internet access (for package downloads, updates)
+- Brokers NOT accessible from internet (protected)
+- **Use Case**: Production, secure environments, internal-only clusters
+- **Security**: Recommended for production deployments
+
+**Important**: `is_public` and `enable_kafka_nat_gateway` are mutually exclusive. Set only one to `true`.
+
 ### Example Configuration (secret.tfvars)
 
 ```hcl
@@ -197,6 +217,9 @@ kafka_instance_count     = 3
 kafka_vm_size            = "Standard_D4as_v5"
 kafka_data_disk_iops     = 3000  # Optional, defaults to 3000
 kafka_data_disk_throughput_mbps = 125  # Optional, defaults to 125
+
+# Kafka broker network exposure (choose one approach)
+is_public_kafka          = false  # Set to true for public IPs; false for private+NAT (default, production-recommended)
 
 # Regional configuration
 resource_group_location  = "westus"

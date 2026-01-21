@@ -1,4 +1,21 @@
 ############### RG #################
+# Validation: is_public and enable_kafka_nat_gateway are mutually exclusive
+terraform {
+  required_version = ">= 1.0"
+}
+
+# Prevent conflicting configuration
+resource "terraform_data" "validate_config" {
+  input = var.is_public && var.enable_kafka_nat_gateway ? "ERROR: Cannot set both is_public=true and enable_kafka_nat_gateway=true. Choose one: public IPs (is_public=true) OR NAT gateway (enable_kafka_nat_gateway=true)." : "OK"
+  
+  lifecycle {
+    precondition {
+      condition     = !(var.is_public && var.enable_kafka_nat_gateway)
+      error_message = "CONFIGURATION ERROR: is_public and enable_kafka_nat_gateway cannot both be true. Choose: is_public=true for public brokers, OR enable_kafka_nat_gateway=true for NAT-based outbound access, but not both."
+    }
+  }
+}
+
 data azurerm_subscription "current" { }
 
 # Reuse existing RG when told to; otherwise create
@@ -50,6 +67,7 @@ locals {
   kafka_subnet_id    = var.use_existing_kafka_network ? data.azurerm_subnet.kafka[0].id : azurerm_subnet.kafka[0].id
   kafka_nsg_id       = var.kafka_nsg_id != "" ? var.kafka_nsg_id : (!var.use_existing_kafka_network ? azurerm_network_security_group.example[0].id : null)
   attach_kafka_nsg   = var.kafka_nsg_id != "" || (!var.use_existing_kafka_network)
+  kafka_nat_enabled  = var.enable_kafka_nat_gateway && !var.is_public
 }
 
 resource "azurerm_network_security_group" "example" {
@@ -197,7 +215,7 @@ resource "azurerm_virtual_network_peering" "control_to_kafka" {
 # Inbound access is NOT possible through NAT - brokers remain private
 
 resource "azurerm_public_ip" "example" {
-  count               = var.enable_kafka_nat_gateway ? 1 : 0
+  count               = local.kafka_nat_enabled ? 1 : 0
   name                = var.kafka_nat_ip_name
   location            = local.kafka_rg_location
   resource_group_name = local.kafka_rg_name
@@ -212,7 +230,7 @@ resource "azurerm_public_ip" "example" {
 }
 
 resource "azurerm_nat_gateway" "example" {
-  count                  = var.enable_kafka_nat_gateway ? 1 : 0
+  count                  = local.kafka_nat_enabled ? 1 : 0
   name                   = var.kafka_nat_gateway_name
   location               = local.kafka_rg_location
   resource_group_name    = local.kafka_rg_name
@@ -227,13 +245,13 @@ resource "azurerm_nat_gateway" "example" {
 }
 
 resource "azurerm_nat_gateway_public_ip_association" "example" {
-  count               = var.enable_kafka_nat_gateway ? 1 : 0
+  count               = local.kafka_nat_enabled ? 1 : 0
   nat_gateway_id       = azurerm_nat_gateway.example[0].id
   public_ip_address_id = azurerm_public_ip.example[0].id
 }
 
 resource "azurerm_subnet_nat_gateway_association" "example" {
-  count         = (var.enable_kafka_nat_gateway && !var.use_existing_kafka_network) ? 1 : 0
+  count         = (local.kafka_nat_enabled && !var.use_existing_kafka_network) ? 1 : 0
   subnet_id      = local.kafka_subnet_id
   nat_gateway_id = azurerm_nat_gateway.example[0].id
 }

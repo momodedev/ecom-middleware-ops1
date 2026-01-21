@@ -131,6 +131,12 @@ variable "enable_kafka_nat_gateway" {
   description = "Create and attach a NAT gateway for outbound access. Disable when the existing subnet already has outbound access configured."
 }
 
+variable "is_public" {
+  type        = bool
+  default     = false
+  description = "Expose Kafka brokers with public IPs. When true: creates Static public IPs per broker and disables NAT gateway. When false: keeps brokers private with NAT gateway for outbound access (recommended for production). Cannot be true with enable_kafka_nat_gateway simultaneously."
+}
+
 variable "kafka_nsg_id" {
   type        = string
   default     = ""

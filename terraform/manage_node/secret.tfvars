@@ -25,6 +25,7 @@ existing_kafka_vnet_resource_group_name = "kafka_t1"   # same RG as above
 #kafka_subnet_name                       = "existing-subnet-name" # CHANGE to your existing subnet name
 enable_vnet_peering                     = false                   # same VNet => no peering needed
 enable_kafka_nat_gateway                = false                   # assume subnet already has outbound path
+is_public_kafka                         = false                   # Set to true to create public IPs for brokers; false = private with NAT
 kafka_nsg_id                            = "/subscriptions/8d6bd1eb-ae31-4f2c-856a-0f8e47115c4b/resourceGroups/kafka_t1/providers/Microsoft.Network/networkSecurityGroups/control-nsg"                     # optional: set if you have an NSG to reuse
 control_nsg_id                          = "/subscriptions/8d6bd1eb-ae31-4f2c-856a-0f8e47115c4b/resourceGroups/kafka_t1/providers/Microsoft.Network/networkSecurityGroups/control-nsg"                   # use existing NSG for control node
 
