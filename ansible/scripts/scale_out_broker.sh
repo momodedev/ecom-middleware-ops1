@@ -418,16 +418,17 @@ for ((i=CURRENT_BROKER_COUNT; i<BROKER_COUNT; i++)); do
 
   # Step 2: Discover broker IP from Azure
   log_info "Step 2: Discovering broker IP for Azure VM: $AZURE_VM_NAME..."
+  # Prefer private IP (best practice for internal cluster communication)
   NEW_BROKER_IP=$(az vm list-ip-addresses \
     --resource-group "$RESOURCE_GROUP" \
-    --query "[?virtualMachine.name=='${AZURE_VM_NAME}'].virtualMachine.network.publicIpAddresses[0].ipAddress" \
+    --query "[?virtualMachine.name=='${AZURE_VM_NAME}'].virtualMachine.network.privateIpAddresses[0]" \
     --output tsv 2>/dev/null || echo "")
 
-  # If public IP not found, try private IP
+  # If private IP not found, fall back to public IP
   if [[ -z "$NEW_BROKER_IP" ]]; then
     NEW_BROKER_IP=$(az vm list-ip-addresses \
       --resource-group "$RESOURCE_GROUP" \
-      --query "[?virtualMachine.name=='${AZURE_VM_NAME}'].virtualMachine.network.privateIpAddresses[0]" \
+      --query "[?virtualMachine.name=='${AZURE_VM_NAME}'].virtualMachine.network.publicIpAddresses[0].ipAddress" \
       --output tsv 2>/dev/null || echo "")
   fi
 
