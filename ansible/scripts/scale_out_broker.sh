@@ -132,10 +132,18 @@ KAFKA_VM_SIZE=""
 KAFKA_LOCATION=""
 KAFKA_ZONE=""
 KAFKA_NAME_PREFIX=""
+KAFKA_DISK_TYPE=""
+USE_PREMIUM_V2="false"
 IS_PUBLIC="false"
+USE_EXISTING_NETWORK="false"
+KAFKA_VNET_NAME=""
+KAFKA_SUBNET_NAME=""
+KAFKA_VNET_RG=""
+KAFKA_NSG_ID=""
 
 if [[ $CURRENT_BROKER_COUNT -gt 0 ]]; then
   log_info "Detecting existing infrastructure configuration from Azure..."
+  RG_EXISTS=$(az group exists --name "$RESOURCE_GROUP" 2>/dev/null || echo "false")
   
   # Find first existing broker VM dynamically
   EXISTING_VM_NAME=$(az vm list \
@@ -170,15 +178,85 @@ if [[ $CURRENT_BROKER_COUNT -gt 0 ]]; then
     # Extract name prefix (everything before "-broker-")
     KAFKA_NAME_PREFIX="${EXISTING_VM_NAME%%-broker-*}"
     
-    # Check if existing VMs have public IPs
-    HAS_PUBLIC_IP=$(az vm show \
+    # Check if existing VMs have public IPs by checking NIC configuration
+    NIC_NAME=$(az vm show \
       --resource-group "$RESOURCE_GROUP" \
       --name "$EXISTING_VM_NAME" \
-      --query "publicIps" \
+      --query "networkProfile.networkInterfaces[0].id" \
+      --output tsv 2>/dev/null | awk -F'/' '{print $NF}')
+    
+    if [[ -n "$NIC_NAME" ]]; then
+      PUBLIC_IP_ID=$(az network nic show \
+        --resource-group "$RESOURCE_GROUP" \
+        --name "$NIC_NAME" \
+        --query "ipConfigurations[0].publicIpAddress.id" \
+        --output tsv 2>/dev/null || echo "")
+      
+      if [[ -n "$PUBLIC_IP_ID" && "$PUBLIC_IP_ID" != "null" ]]; then
+        IS_PUBLIC="true"
+      fi
+
+      # Capture network details from the NIC/subnet to reuse existing VNet/Subnet/NSG
+      SUBNET_ID=$(az network nic show \
+        --resource-group "$RESOURCE_GROUP" \
+        --name "$NIC_NAME" \
+        --query "ipConfigurations[0].subnet.id" \
+        --output tsv 2>/dev/null || echo "")
+
+      if [[ -n "$SUBNET_ID" ]]; then
+        KAFKA_SUBNET_NAME=$(basename "$SUBNET_ID")
+        KAFKA_VNET_NAME=$(echo "$SUBNET_ID" | awk -F'/subnets/' '{print $1}' | awk -F'/virtualNetworks/' '{print $2}')
+        KAFKA_VNET_RG=$(echo "$SUBNET_ID" | awk -F'/resourceGroups/' '{print $2}' | awk -F'/providers' '{print $1}')
+        USE_EXISTING_NETWORK="true"
+      fi
+
+      # Capture existing NIC NSG to avoid re-association churn
+      KAFKA_NSG_ID=$(az network nic show \
+        --resource-group "$RESOURCE_GROUP" \
+        --name "$NIC_NAME" \
+        --query "networkSecurityGroup.id" \
+        --output tsv 2>/dev/null || echo "")
+    fi
+
+    # Fallback detection: any public IPs in the RG that match the broker prefix
+    if [[ "$IS_PUBLIC" != "true" ]]; then
+      EXISTING_PIP_COUNT=$(az network public-ip list \
+        --resource-group "$RESOURCE_GROUP" \
+        --query "[?starts_with(name, '${KAFKA_NAME_PREFIX}-pip-')]|length(@)" \
+        --output tsv 2>/dev/null || echo "0")
+      if [[ ${EXISTING_PIP_COUNT:-0} -gt 0 ]]; then
+        IS_PUBLIC="true"
+      fi
+    fi
+
+    # Second fallback: NIC tags that explicitly mark PublicIP
+    if [[ "$IS_PUBLIC" != "true" ]]; then
+      NIC_PUBLIC_TAG_COUNT=$(az network nic list \
+        --resource-group "$RESOURCE_GROUP" \
+        --query "[?tags.PublicIP=='public']|length(@)" \
+        --output tsv 2>/dev/null || echo "0")
+      if [[ ${NIC_PUBLIC_TAG_COUNT:-0} -gt 0 ]]; then
+        IS_PUBLIC="true"
+      fi
+    fi
+    
+    # Detect disk storage type from existing data disk
+    DATA_DISK_NAME=$(az vm show \
+      --resource-group "$RESOURCE_GROUP" \
+      --name "$EXISTING_VM_NAME" \
+      --query "storageProfile.dataDisks[0].name" \
       --output tsv 2>/dev/null || echo "")
     
-    if [[ -n "$HAS_PUBLIC_IP" ]]; then
-      IS_PUBLIC="true"
+    if [[ -n "$DATA_DISK_NAME" ]]; then
+      KAFKA_DISK_TYPE=$(az disk show \
+        --resource-group "$RESOURCE_GROUP" \
+        --name "$DATA_DISK_NAME" \
+        --query "sku.name" \
+        --output tsv 2>/dev/null || echo "")
+      
+      if [[ "$KAFKA_DISK_TYPE" == "PremiumV2_LRS" ]]; then
+        USE_PREMIUM_V2="true"
+      fi
     fi
     
     log_success "Detected configuration:"
@@ -186,12 +264,41 @@ if [[ $CURRENT_BROKER_COUNT -gt 0 ]]; then
     log_info "  Location: ${KAFKA_LOCATION}"
     log_info "  Zone: ${KAFKA_ZONE:-none}"
     log_info "  Name Prefix: ${KAFKA_NAME_PREFIX}"
+    log_info "  Disk Type: ${KAFKA_DISK_TYPE:-Premium_LRS}"
     log_info "  Public IPs: ${IS_PUBLIC}"
+    if [[ "$USE_EXISTING_NETWORK" == "true" ]]; then
+      log_info "  Reusing VNet/Subnet: ${KAFKA_VNET_NAME}/${KAFKA_SUBNET_NAME} in RG ${KAFKA_VNET_RG:-$RESOURCE_GROUP}"
+      if [[ -n "$KAFKA_NSG_ID" ]]; then
+        log_info "  Existing NSG: ${KAFKA_NSG_ID}"
+      fi
+    fi
   else
     log_warn "Could not find existing broker VMs in resource group, using Terraform defaults"
   fi
 else
   log_info "No existing brokers found in inventory, using Terraform default configuration"
+fi
+
+# If the resource group already exists, force Terraform to reuse network resources
+if [[ "$RG_EXISTS" == "true" ]]; then
+  USE_EXISTING_NETWORK="true"
+  # Fill missing VNet/Subnet from the RG if not set above
+  if [[ -z "$KAFKA_VNET_NAME" ]]; then
+    KAFKA_VNET_NAME=$(az network vnet list \
+      --resource-group "$RESOURCE_GROUP" \
+      --query "[0].name" \
+      --output tsv 2>/dev/null || echo "")
+  fi
+  if [[ -z "$KAFKA_SUBNET_NAME" && -n "$KAFKA_VNET_NAME" ]]; then
+    KAFKA_SUBNET_NAME=$(az network vnet subnet list \
+      --resource-group "$RESOURCE_GROUP" \
+      --vnet-name "$KAFKA_VNET_NAME" \
+      --query "[0].name" \
+      --output tsv 2>/dev/null || echo "")
+  fi
+  if [[ -z "$KAFKA_VNET_RG" ]]; then
+    KAFKA_VNET_RG="$RESOURCE_GROUP"
+  fi
 fi
 echo ""
 
@@ -221,8 +328,33 @@ else
   TERRAFORM_CMD="$TERRAFORM_CMD -var enable_availability_zones=false"
 fi
 
+if [[ "$USE_PREMIUM_V2" == "true" ]]; then
+  TERRAFORM_CMD="$TERRAFORM_CMD -var use_premium_v2_disks=true"
+else
+  TERRAFORM_CMD="$TERRAFORM_CMD -var use_premium_v2_disks=false"
+fi
+
 if [[ "$IS_PUBLIC" == "true" ]]; then
   TERRAFORM_CMD="$TERRAFORM_CMD -var is_public=true"
+else
+  TERRAFORM_CMD="$TERRAFORM_CMD -var is_public=false"
+fi
+
+# Reuse existing network/VNet/Subnet/NSG when detected to avoid resource creation/diff
+if [[ "$USE_EXISTING_NETWORK" == "true" ]]; then
+  TERRAFORM_CMD="$TERRAFORM_CMD -var use_existing_kafka_network=true"
+  if [[ -n "$KAFKA_VNET_NAME" ]]; then
+    TERRAFORM_CMD="$TERRAFORM_CMD -var kafka_vnet_name=$KAFKA_VNET_NAME"
+  fi
+  if [[ -n "$KAFKA_SUBNET_NAME" ]]; then
+    TERRAFORM_CMD="$TERRAFORM_CMD -var kafka_subnet_name=$KAFKA_SUBNET_NAME"
+  fi
+  if [[ -n "$KAFKA_VNET_RG" ]]; then
+    TERRAFORM_CMD="$TERRAFORM_CMD -var existing_kafka_vnet_resource_group_name=$KAFKA_VNET_RG"
+  fi
+  if [[ -n "$KAFKA_NSG_ID" ]]; then
+    TERRAFORM_CMD="$TERRAFORM_CMD -var kafka_nsg_id=$KAFKA_NSG_ID"
+  fi
 fi
 
 log_info "Running: $TERRAFORM_CMD"

@@ -17,6 +17,12 @@ resource "azurerm_public_ip" "kafka_brokers" {
     Index       = count.index
     Purpose     = "public-access"
   }
+
+  lifecycle {
+    ignore_changes = [tags]
+    # Prevent accidental deletion of public IPs
+    prevent_destroy = false
+  }
 }
 
 # Create network interfaces for each Kafka broker (public IP optional)
@@ -38,6 +44,14 @@ resource "azurerm_network_interface" "kafka_brokers" {
     Component   = "kafka-broker"
     Index       = count.index
     PublicIP    = var.is_public ? "public" : "none"
+  }
+
+  lifecycle {
+    ignore_changes = [
+      tags,
+      # Prevent Terraform from detaching/reattaching public IPs during scale operations
+      ip_configuration[0].public_ip_address_id
+    ]
   }
 }
 
@@ -154,6 +168,17 @@ resource "azurerm_managed_disk" "kafka_data_disk" {
     Component   = "kafka"
     Index       = count.index
     DiskType    = var.use_premium_v2_disks ? "PremiumV2" : "Premium"
+  }
+
+  lifecycle {
+    ignore_changes = [
+      tags,
+      # Prevent Terraform from recreating disks due to zone attribute changes
+      # Zone may be set to null in some scenarios but should not trigger replacement
+      zone
+    ]
+    # WARNING: Prevent accidental disk deletion (data loss!)
+    prevent_destroy = false
   }
 }
 
