@@ -35,8 +35,9 @@ echo ""
 
 # Get all Kafka broker VMs
 echo "[2/5] Discovering Kafka broker VMs..."
+VM_PREFIX="${KAFKA_VM_PREFIX:-${RESOURCE_GROUP}}"
 vm_names=$(az vm list -g "$RESOURCE_GROUP" \
-    --query "[?starts_with(name, '${resource_group}-broker-')].name" \
+    --query "[?starts_with(name, '${VM_PREFIX}-broker-')].name" \
     -o tsv | sort)
 
 if [[ -z "$vm_names" ]]; then
