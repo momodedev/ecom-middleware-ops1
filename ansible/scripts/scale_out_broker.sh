@@ -127,10 +127,15 @@ log_info "Resource Group: $RESOURCE_GROUP"
 log_info "Ansible User: $ANSIBLE_USER"
 echo ""
 
-# Detect VM size from existing broker (if any exist)
+# Detect existing infrastructure configuration from Azure (if brokers exist)
 KAFKA_VM_SIZE=""
+KAFKA_LOCATION=""
+KAFKA_ZONE=""
+KAFKA_NAME_PREFIX=""
+IS_PUBLIC="false"
+
 if [[ $CURRENT_BROKER_COUNT -gt 0 ]]; then
-  log_info "Detecting VM size from existing broker..."
+  log_info "Detecting existing infrastructure configuration from Azure..."
   
   # Find first existing broker VM dynamically
   EXISTING_VM_NAME=$(az vm list \
@@ -140,22 +145,53 @@ if [[ $CURRENT_BROKER_COUNT -gt 0 ]]; then
   
   if [[ -n "$EXISTING_VM_NAME" ]]; then
     log_info "Found existing broker VM: $EXISTING_VM_NAME"
+    
+    # Extract VM size
     KAFKA_VM_SIZE=$(az vm show \
       --resource-group "$RESOURCE_GROUP" \
       --name "$EXISTING_VM_NAME" \
       --query "hardwareProfile.vmSize" \
       --output tsv 2>/dev/null || echo "")
     
-    if [[ -n "$KAFKA_VM_SIZE" ]]; then
-      log_success "Detected VM size from existing broker: $KAFKA_VM_SIZE"
-    else
-      log_warn "Could not detect VM size from $EXISTING_VM_NAME, using Terraform default"
+    # Extract location
+    KAFKA_LOCATION=$(az vm show \
+      --resource-group "$RESOURCE_GROUP" \
+      --name "$EXISTING_VM_NAME" \
+      --query "location" \
+      --output tsv 2>/dev/null || echo "")
+    
+    # Extract zone (may be empty for non-zonal deployments)
+    KAFKA_ZONE=$(az vm show \
+      --resource-group "$RESOURCE_GROUP" \
+      --name "$EXISTING_VM_NAME" \
+      --query "zones[0]" \
+      --output tsv 2>/dev/null || echo "")
+    
+    # Extract name prefix (everything before "-broker-")
+    KAFKA_NAME_PREFIX="${EXISTING_VM_NAME%%-broker-*}"
+    
+    # Check if existing VMs have public IPs
+    HAS_PUBLIC_IP=$(az vm show \
+      --resource-group "$RESOURCE_GROUP" \
+      --name "$EXISTING_VM_NAME" \
+      --query "publicIps" \
+      --output tsv 2>/dev/null || echo "")
+    
+    if [[ -n "$HAS_PUBLIC_IP" ]]; then
+      IS_PUBLIC="true"
     fi
+    
+    log_success "Detected configuration:"
+    log_info "  VM Size: ${KAFKA_VM_SIZE}"
+    log_info "  Location: ${KAFKA_LOCATION}"
+    log_info "  Zone: ${KAFKA_ZONE:-none}"
+    log_info "  Name Prefix: ${KAFKA_NAME_PREFIX}"
+    log_info "  Public IPs: ${IS_PUBLIC}"
   else
-    log_warn "Could not find existing broker VMs in resource group, using Terraform default"
+    log_warn "Could not find existing broker VMs in resource group, using Terraform defaults"
   fi
 else
-  log_info "No existing brokers found in inventory, using Terraform default VM size"
+  log_info "No existing brokers found in inventory, using Terraform default configuration"
 fi
 echo ""
 
@@ -163,9 +199,30 @@ echo ""
 log_info "Step 1: Provisioning $NUM_BROKERS new broker VM(s) via Terraform..."
 cd "$TERRAFORM_DIR"
 
-TERRAFORM_CMD="terraform apply -auto-approve -var ARM_SUBSCRIPTION_ID=$SUBSCRIPTION_ID -var kafka_instance_count=$BROKER_COUNT"
+# Build Terraform command with all necessary variables to preserve existing resources
+TERRAFORM_CMD="terraform apply -auto-approve"
+TERRAFORM_CMD="$TERRAFORM_CMD -var ARM_SUBSCRIPTION_ID=$SUBSCRIPTION_ID"
+TERRAFORM_CMD="$TERRAFORM_CMD -var kafka_instance_count=$BROKER_COUNT"
+TERRAFORM_CMD="$TERRAFORM_CMD -var resource_group_name=$RESOURCE_GROUP"
+
+# Add detected configuration to preserve existing resources
 if [[ -n "$KAFKA_VM_SIZE" ]]; then
   TERRAFORM_CMD="$TERRAFORM_CMD -var kafka_vm_size=$KAFKA_VM_SIZE"
+fi
+
+if [[ -n "$KAFKA_LOCATION" ]]; then
+  TERRAFORM_CMD="$TERRAFORM_CMD -var resource_group_location=$KAFKA_LOCATION"
+fi
+
+if [[ -n "$KAFKA_ZONE" ]]; then
+  TERRAFORM_CMD="$TERRAFORM_CMD -var kafka_vm_zone=$KAFKA_ZONE"
+  TERRAFORM_CMD="$TERRAFORM_CMD -var enable_availability_zones=true"
+else
+  TERRAFORM_CMD="$TERRAFORM_CMD -var enable_availability_zones=false"
+fi
+
+if [[ "$IS_PUBLIC" == "true" ]]; then
+  TERRAFORM_CMD="$TERRAFORM_CMD -var is_public=true"
 fi
 
 log_info "Running: $TERRAFORM_CMD"
@@ -198,11 +255,19 @@ for ((i=CURRENT_BROKER_COUNT; i<BROKER_COUNT; i++)); do
   BROKER_SEQUENCE=$((i+1))
   # Consistent 0-indexed naming across all components:
   # - Terraform Index: 0, 1, 2...
-  # - Azure VM Name: kafka_t1-broker-0, kafka_t1-broker-1...
+  # - Azure VM Name: Uses existing name prefix (kafka_t1-broker-X or kafka-cluster-broker-X)
   # - Computer Name: kafka-broker-0, kafka-broker-1...
   # - Inventory Name: kafka-broker-0, kafka-broker-1...
   # - Kafka Node ID: 1, 2, 3... (1-indexed as required by KRaft)
-  AZURE_VM_NAME="kafka_t1-broker-${BROKER_INDEX}"
+  
+  # Use detected name prefix or default
+  if [[ -n "$KAFKA_NAME_PREFIX" ]]; then
+    AZURE_VM_NAME="${KAFKA_NAME_PREFIX}-broker-${BROKER_INDEX}"
+  else
+    # Default for new deployments
+    AZURE_VM_NAME="kafka-cluster-broker-${BROKER_INDEX}"
+  fi
+  
   if [[ -n "$BROKER_NAME" ]]; then
     CURRENT_BROKER_NAME="$BROKER_NAME"
   else

@@ -12,6 +12,16 @@
     graceful_timeout: 30
     health_check_timeout: 60
 
+  pre_tasks:
+    - name: Ensure Kafka services log directory exists
+      file:
+        path: "{{ services_logs_dir | default('/var/log/kafka') }}"
+        state: directory
+        owner: kafka
+        group: kafka
+        mode: "0755"
+      become: yes
+
   tasks:
     # =====================================================================
     # STARTUP OPERATIONS
@@ -29,7 +39,7 @@
             name: kafka.service
             state: started
             enabled: yes
-            daemon_reload: yes
+            daemon_reload: no
           when: kafka_service_status.status.ActiveState != "active"
 
         - name: Wait for Kafka broker to be ready
@@ -85,87 +95,40 @@
             timeout: "{{ graceful_timeout }}"
           ignore_errors: yes
 
-        - name: Force stop if still running
-          systemd:
-            name: kafka.service
-            state: stopped
+        - name: Force stop Kafka service (no daemon-reload)
+          shell: |
+            systemctl stop kafka.service || true
+          become: yes
           ignore_errors: yes
 
-        - name: Stop kafka_exporter
-          systemd:
-            name: kafka_exporter.service
-            state: stopped
+        - name: Kill Kafka service if still stubborn
+          shell: |
+            systemctl kill -s SIGKILL kafka.service || pkill -9 -f kafka.Kafka || true
+          become: yes
           ignore_errors: yes
 
-        - name: Ensure Kafka is stopped
-          wait_for:
-            port: 9092
-            state: stopped
-            delay: 1
-            timeout: 10
+        - name: Stop kafka_exporter (no daemon-reload)
+          shell: |
+            systemctl stop kafka_exporter.service || true
+          become: yes
+          ignore_errors: yes
+
+        - name: Kill kafka_exporter if still running
+          shell: pkill -9 -f kafka_exporter || true
+          become: yes
+          ignore_errors: yes
+
+        - name: Ensure Kafka is stopped (check all interfaces)
+          shell: |
+            ! netstat -tuln | grep -E ':9092[[:space:]]' && ! ss -tuln | grep -E ':9092[[:space:]]' || true
+          become: yes
+          register: port_check
+          retries: 3
+          delay: 10
+          until: port_check.rc == 0
           ignore_errors: yes
 
       when: operation == 'stop'
-
-    # =====================================================================
-    # HEALTH CHECK & VALIDATION
-    # =====================================================================
-
-    - name: Check Kafka Broker Health
-      block:
-        - name: Check if Kafka service is running
-          systemd:
-            name: kafka.service
-          register: kafka_service
-
-        - name: Check broker port accessibility
-          wait_for:
-            port: 9092
-            delay: 1
-            timeout: 5
-          register: port_check
-          ignore_errors: yes
-
-        - name: Get broker API versions (connectivity check)
-          shell: |
-            set -o pipefail
-            /opt/kafka/bin/kafka-broker-api-versions.sh --bootstrap-server localhost:9092 2>&1 | grep -E "ApiVersion|Error" | head -3
-          become: yes
-          become_user: kafka
-          register: broker_health
-          ignore_errors: yes
-
-        - name: Check Kafka logs for errors
-          command: |
-            tail -20 {{ services_logs_dir }}/server.log | grep -E "ERROR|FATAL" || echo "No errors"
-          become: yes
-          become_user: kafka
-          register: log_check
-          ignore_errors: yes
-
-        - name: Get broker configuration
-          command: |
-            cat {{ kafka_workspace }}/config/server.properties | grep -E "^(node.id|listeners|advertised.listeners|log.dirs)" || true
-          register: broker_config
-
-        - name: Display Kafka Health Status
-          debug:
-            msg: |
-              Kafka Broker Health Report for {{ inventory_hostname }}
-              ===================================================
-              Service Status: {{ kafka_service.status.ActiveState }}
-              Port 9092 Accessible: {{ port_check is succeeded }}
-              
-              API Check:
-              {{ broker_health.stdout }}
-              
-              Recent Errors:
-              {{ log_check.stdout }}
-              
-              Broker Config:
-              {{ broker_config.stdout }}
-
-      when: operation == 'health-check'
 
     # =====================================================================
     # RESTART OPERATIONS

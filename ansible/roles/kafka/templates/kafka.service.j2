@@ -13,8 +13,8 @@ ExecStop={{ kafka_workspace }}/bin/kafka-server-stop.sh
 Restart=on-failure
 RestartSec=5
 LimitNOFILE=131072
-StandardOutput=append:{{ services_logs_dir }}/kafka.log
-StandardError=append:{{ services_logs_dir }}/kafka-error.log
+TimeoutStopSec=30
+KillMode=process
 StandardOutput=journal
 StandardError=journal
 
