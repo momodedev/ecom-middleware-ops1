@@ -113,6 +113,18 @@ variable "kafka_nsg_name" {
   description = "Name of the Network Security Group managing inbound/outbound traffic for Kafka infrastructure."
 }
 
+variable "kafka_allowed_cidrs" {
+  type        = list(string)
+  default     = ["10.0.0.0/16"]
+  description = "CIDR blocks allowed to reach Kafka broker listeners (9092/9093/9094) and monitoring ports (9308/9100)."
+}
+
+variable "ssh_allowed_cidrs" {
+  type        = list(string)
+  default     = ["10.0.0.0/16"]
+  description = "CIDR blocks allowed to SSH to Kafka brokers/control node managed by this module."
+}
+
 variable "kafka_nat_ip_name" {
   type        = string
   default     = "kafka-nat-ip"

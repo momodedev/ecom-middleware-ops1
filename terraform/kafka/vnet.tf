@@ -81,7 +81,7 @@ resource "azurerm_network_security_group" "example" {
   location            = local.kafka_rg_location
   resource_group_name = local.kafka_rg_name
 
-  # SSH only from control node VNet
+  # SSH only from allowlist
   security_rule {
     name                       = "ssh-from-control"
     priority                   = 100
@@ -90,7 +90,7 @@ resource "azurerm_network_security_group" "example" {
     protocol                   = "Tcp"
     source_port_range          = "*"
     destination_port_range     = "22"
-    source_address_prefix      = "172.17.0.0/16"  # Control VNet only
+    source_address_prefixes    = var.ssh_allowed_cidrs
     destination_address_prefix = "*"
   }
 
@@ -103,7 +103,7 @@ resource "azurerm_network_security_group" "example" {
     protocol                   = "Tcp"
     source_port_range          = "*"
     destination_port_range     = "9092"
-    source_address_prefixes    = ["172.16.0.0/16", "172.17.0.0/16"]  # Kafka + Control VNets
+    source_address_prefixes    = var.kafka_allowed_cidrs
     destination_address_prefix = "*"
   }
 
@@ -116,7 +116,7 @@ resource "azurerm_network_security_group" "example" {
     protocol                   = "Tcp"
     source_port_range          = "*"
     destination_port_range     = "9093"
-    source_address_prefixes    = ["172.16.0.0/16", "172.17.0.0/16"]  # Kafka + Control VNets
+    source_address_prefixes    = var.kafka_allowed_cidrs
     destination_address_prefix = "*"
   }
 
@@ -129,7 +129,7 @@ resource "azurerm_network_security_group" "example" {
     protocol                   = "Tcp"
     source_port_range          = "*"
     destination_port_range     = "9094"
-    source_address_prefixes    = ["172.16.0.0/16", "172.17.0.0/16"]  # Kafka + Control VNets
+    source_address_prefixes    = var.kafka_allowed_cidrs
     destination_address_prefix = "*"
   }
 
@@ -142,7 +142,7 @@ resource "azurerm_network_security_group" "example" {
     protocol                   = "Tcp"
     source_port_range          = "*"
     destination_port_range     = "9308"
-    source_address_prefixes    = ["172.16.0.0/16", "172.17.0.0/16"]  # Kafka + Control VNets
+    source_address_prefixes    = var.kafka_allowed_cidrs
     destination_address_prefix = "*"
   }
 
@@ -155,7 +155,7 @@ resource "azurerm_network_security_group" "example" {
     protocol                   = "Tcp"
     source_port_range          = "*"
     destination_port_range     = "9100"
-    source_address_prefixes    = ["172.16.0.0/16", "172.17.0.0/16"]  # Kafka + Control VNets
+    source_address_prefixes    = var.kafka_allowed_cidrs
     destination_address_prefix = "*"
   }
 
