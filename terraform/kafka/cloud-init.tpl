@@ -2,12 +2,20 @@
 # Cloud-init configuration for Kafka broker VMs (Rocky Linux 9)
 # Installs system dependencies needed before Ansible configures Kafka
 
+# Ensure required repositories are available before package install
+bootcmd:
+  - dnf -y install dnf-plugins-core || true
+  - dnf config-manager --set-enabled crb || true
+  - dnf -y install epel-release || true
+  - dnf clean all || true
+  - dnf makecache || true
+
 packages:
   - dnf-plugins-core
   - jq
   - python3
   - python3-pip
-  - python3-venv
+  - python3-virtualenv
   - curl
   - wget
   - git
@@ -68,7 +76,7 @@ runcmd:
     net.core.wmem_max = 134217728
     net.ipv4.tcp_rmem = 4096 87380 67108864
     net.ipv4.tcp_wmem = 4096 65536 67108864
-    net.tcp_max_syn_backlog = 1024
+    net.ipv4.tcp_max_syn_backlog = 1024
     net.ipv4.ip_local_port_range = 1024 65535
     EOF
   # Apply sysctl but ignore missing parameters (some may not exist on all kernel versions)
