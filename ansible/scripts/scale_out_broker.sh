@@ -13,6 +13,7 @@ PROJECT_ROOT="${SCRIPT_DIR}/../.."
 TERRAFORM_DIR="${PROJECT_ROOT}/terraform/kafka"
 ANSIBLE_DIR="${PROJECT_ROOT}/ansible"
 INVENTORY_FILE="${ANSIBLE_DIR}/inventory/kafka_hosts"
+REPO_NAME="$(basename "$PROJECT_ROOT")"
 
 # Defaults
 BROKER_NAME=""
@@ -308,6 +309,12 @@ cd "$TERRAFORM_DIR"
 
 # Build Terraform command with all necessary variables to preserve existing resources
 TERRAFORM_CMD="terraform apply -auto-approve"
+CONTROL_NODE_USER="${USER}"
+ANSIBLE_VENV_PATH_FOR_TF="${ANSIBLE_VENV_PATH:-/home/${CONTROL_NODE_USER}/ansible-venv}"
+TERRAFORM_CMD="$TERRAFORM_CMD -var repository_base_dir=$PROJECT_ROOT"
+TERRAFORM_CMD="$TERRAFORM_CMD -var repository_name=$REPO_NAME"
+TERRAFORM_CMD="$TERRAFORM_CMD -var control_node_user=$CONTROL_NODE_USER"
+TERRAFORM_CMD="$TERRAFORM_CMD -var ansible_venv_path=$ANSIBLE_VENV_PATH_FOR_TF"
 TERRAFORM_CMD="$TERRAFORM_CMD -var ARM_SUBSCRIPTION_ID=$SUBSCRIPTION_ID"
 TERRAFORM_CMD="$TERRAFORM_CMD -var kafka_instance_count=$BROKER_COUNT"
 TERRAFORM_CMD="$TERRAFORM_CMD -var resource_group_name=$RESOURCE_GROUP"
