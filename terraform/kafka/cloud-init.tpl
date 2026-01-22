@@ -21,10 +21,6 @@ runcmd:
   # Update package cache
   - dnf update -y
   
-  # Install firewalld for port management
-  - systemctl enable firewalld
-  - systemctl start firewalld
-  
   # Create required directories with proper ownership
   - mkdir -p /opt/kafka
   - mkdir -p /data/kafka
