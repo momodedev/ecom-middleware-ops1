@@ -221,6 +221,9 @@ resource "null_resource" "launch_ansible_playbook" {
     command     = <<-EOT
       set -e
       source ${local.computed_ansible_venv_path}/bin/activate
+
+      # FIX: Define the correct prefix to match your VM names in vms.tf
+      export KAFKA_VM_PREFIX="kafka"
       
       # Login to Azure
       az login --identity >/dev/null 2>&1 || { echo "Azure login failed"; exit 1; }
