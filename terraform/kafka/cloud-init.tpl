@@ -71,7 +71,8 @@ runcmd:
     net.tcp_max_syn_backlog = 1024
     net.ipv4.ip_local_port_range = 1024 65535
     EOF
-  - sysctl -p
+  # Apply sysctl but ignore missing parameters (some may not exist on all kernel versions)
+  - sysctl -p || true
   
   # Log cloud-init completion
   - echo "Cloud-init bootstrap completed at $(date)" > /var/log/kafka-bootstrap-complete.log
