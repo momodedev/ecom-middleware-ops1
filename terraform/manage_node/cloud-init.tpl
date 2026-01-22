@@ -5,11 +5,18 @@
 package_update: true
 package_upgrade: false
 
+bootcmd:
+  - dnf -y install dnf-plugins-core || true
+  - dnf config-manager --set-enabled crb || true
+  - dnf -y install epel-release || true
+  - dnf clean all || true
+  - dnf makecache || true
+
 packages:
   - jq
   - python3
   - python3-pip
-  - python3-venv
+  - python3-virtualenv
   - curl
   - wget
   - gnupg
