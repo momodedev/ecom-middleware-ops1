@@ -5,6 +5,7 @@
 - name: Kafka Cluster Maintenance Operations
   hosts: kafka
   gather_facts: yes
+  become: yes
   
   vars:
     # Control the operation: start, stop, restart, health-check
