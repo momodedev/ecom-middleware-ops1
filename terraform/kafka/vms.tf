@@ -5,7 +5,7 @@
 # Optional public IPs for brokers when is_public=true
 resource "azurerm_public_ip" "kafka_brokers" {
   count               = var.is_public ? var.kafka_instance_count : 0
-  name                = "${var.resource_group_name}-pip-${count.index}"
+  name                = "kafka-pip-${count.index}"
   location            = local.kafka_rg_location
   resource_group_name = local.kafka_rg_name
   allocation_method   = "Static"
@@ -28,12 +28,12 @@ resource "azurerm_public_ip" "kafka_brokers" {
 # Create network interfaces for each Kafka broker (public IP optional)
 resource "azurerm_network_interface" "kafka_brokers" {
   count               = var.kafka_instance_count
-  name                = "${var.resource_group_name}-nic-${count.index}"
+  name                = "kafka-nic-${count.index}"
   location            = local.kafka_rg_location
   resource_group_name = local.kafka_rg_name
 
   ip_configuration {
-    name                          = "${var.resource_group_name}-ip-config-${count.index}"
+    name                          = "kafka-ip-config-${count.index}"
     subnet_id                     = local.kafka_subnet_id
     private_ip_address_allocation = "Dynamic"
     public_ip_address_id          = var.is_public ? azurerm_public_ip.kafka_brokers[count.index].id : null
@@ -66,7 +66,7 @@ resource "azurerm_network_interface_security_group_association" "kafka_brokers" 
 # Note: Using individual VMs instead of VMSS for granular control and easier management
 resource "azurerm_linux_virtual_machine" "kafka_brokers" {
   count               = var.kafka_instance_count
-  name                = "${var.resource_group_name}-broker-${count.index}"
+  name                = "kafka-broker-${count.index}"
   location            = local.kafka_rg_location
   resource_group_name = local.kafka_rg_name
   size                = var.kafka_vm_size
