@@ -115,7 +115,9 @@ resource "azurerm_linux_virtual_machine" "kafka_brokers" {
   }
 
   # Bootstrap with cloud-init for system dependencies
-  custom_data = base64encode(templatefile("${path.module}/cloud-init.tpl", {}))
+  custom_data = base64encode(templatefile("${path.module}/cloud-init.tpl", {
+    kafka_admin_username = var.kafka_admin_username
+  }))
 
   identity {
     type = "SystemAssigned"

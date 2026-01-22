@@ -7,7 +7,7 @@ packages:
   - jq
   - python3
   - python3-pip
-  - python3-virtualenv
+  - python3-venv
   - curl
   - wget
   - git
@@ -50,10 +50,10 @@ runcmd:
     fi
   
   # Set up Python environment for Ansible
-  - python3 -m venv /home/rockyadmin/ansible-venv || true
-  - /home/rockyadmin/ansible-venv/bin/pip install --upgrade pip setuptools
-  - /home/rockyadmin/ansible-venv/bin/pip install ansible jinja2 netaddr
-  - chmod -R 755 /home/rockyadmin/ansible-venv
+  - python3 -m venv /home/${kafka_admin_username}/ansible-venv || true
+  - /home/${kafka_admin_username}/ansible-venv/bin/pip install --upgrade pip setuptools
+  - /home/${kafka_admin_username}/ansible-venv/bin/pip install ansible jinja2 netaddr
+  - chmod -R 755 /home/${kafka_admin_username}/ansible-venv
   
   # Set up system limits for Kafka
   - |
