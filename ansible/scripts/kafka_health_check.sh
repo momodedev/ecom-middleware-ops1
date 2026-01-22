@@ -147,11 +147,26 @@ fi
 # 2. Check broker port accessibility
 echo ""
 echo "[2/8] Checking broker port accessibility..."
-# Try from control node first, fallback to localhost check on remote broker
-if nc -zv "$BROKER_HOST" 9092 &> /dev/null; then
+
+# Test port using bash built-in socket (timeout + /dev/tcp)
+test_port_bash() {
+    local host="$1"
+    local port="$2"
+    local timeout=3
+    
+    (
+        exec 3<>/dev/tcp/"$host"/"$port"
+        exec 3>&-
+        exec 3<&-
+    ) 2>/dev/null
+    return $?
+}
+
+# Try from control node first using bash built-in
+if test_port_bash "$BROKER_HOST" 9092; then
     check_pass "Broker port 9092 is accessible from control node"
 elif [[ "$BROKER_HOST" != "localhost" ]] && command -v ssh >/dev/null 2>&1; then
-    # Try checking port from the broker itself (localhost)
+    # Try checking port from the broker itself (localhost) via SSH
     SSH_TARGET="$BROKER_HOST"
     if [[ -n "$SSH_USER" ]]; then
         SSH_TARGET="$SSH_USER@$BROKER_HOST"
@@ -165,10 +180,14 @@ elif [[ "$BROKER_HOST" != "localhost" ]] && command -v ssh >/dev/null 2>&1; then
     if [[ -n "$SSH_KEY" ]]; then
         SSH_OPTS+=("-i" "$SSH_KEY")
     fi
-    if ssh ${SSH_OPTS[@]} "$SSH_TARGET" 'nc -zv localhost 9092 || ss -tuln | grep :9092' &> /dev/null; then
-        check_warn "Port 9092 NOT accessible from control node, but listening on broker (check NSG/firewall rules)"
+    
+    # Check if port is listening on the broker itself
+    REMOTE_PORT_CHECK=$(ssh ${SSH_OPTS[@]} "$SSH_TARGET" 'ss -tuln 2>/dev/null | grep :9092 || netstat -tuln 2>/dev/null | grep :9092 || true' 2>/dev/null)
+    
+    if [[ -n "$REMOTE_PORT_CHECK" ]]; then
+        check_warn "Port 9092 NOT accessible from control node, but LISTENING on broker $BROKER_HOST (NSG/firewall blocking inbound)"
     else
-        check_fail "Broker port 9092 is NOT accessible and not listening on broker"
+        check_fail "Broker port 9092 is NOT accessible and NOT listening on broker $BROKER_HOST"
     fi
 else
     check_warn "Port 9092 NOT accessible from control node (may need NSG/firewall rules); continuing checks..."
