@@ -12,7 +12,7 @@ resource_group="$1"
 admin_user="$2"
 
 # Get all VMs with names starting with "<resource_group>-broker-" sorted by name
-vm_names=$(az vm list -g "$resource_group" --query "[?starts_with(name, '${resource_group}-broker-')].name" -o tsv | sort)
+vm_names=$(az vm list -g "$resource_group" --query "[?starts_with(name, '${KAFKA_VM_PREFIX}-broker-')].name" -o tsv | sort)
 
 # Extract private IPs for each VM
 private_ips=()
