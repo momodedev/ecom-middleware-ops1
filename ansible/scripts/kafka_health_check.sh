@@ -147,11 +147,31 @@ fi
 # 2. Check broker port accessibility
 echo ""
 echo "[2/8] Checking broker port accessibility..."
+# Try from control node first, fallback to localhost check on remote broker
 if nc -zv "$BROKER_HOST" 9092 &> /dev/null; then
-    check_pass "Broker port 9092 is accessible"
+    check_pass "Broker port 9092 is accessible from control node"
+elif [[ "$BROKER_HOST" != "localhost" ]] && command -v ssh >/dev/null 2>&1; then
+    # Try checking port from the broker itself (localhost)
+    SSH_TARGET="$BROKER_HOST"
+    if [[ -n "$SSH_USER" ]]; then
+        SSH_TARGET="$SSH_USER@$BROKER_HOST"
+    fi
+    SSH_OPTS=(
+        "-o" "BatchMode=yes" 
+        "-o" "ConnectTimeout=5"
+        "-o" "StrictHostKeyChecking=accept-new"
+        "-o" "UserKnownHostsFile=~/.ssh/known_hosts"
+    )
+    if [[ -n "$SSH_KEY" ]]; then
+        SSH_OPTS+=("-i" "$SSH_KEY")
+    fi
+    if ssh ${SSH_OPTS[@]} "$SSH_TARGET" 'nc -zv localhost 9092 || ss -tuln | grep :9092' &> /dev/null; then
+        check_warn "Port 9092 NOT accessible from control node, but listening on broker (check NSG/firewall rules)"
+    else
+        check_fail "Broker port 9092 is NOT accessible and not listening on broker"
+    fi
 else
-    check_fail "Broker port 9092 is NOT accessible"
-    exit 1
+    check_warn "Port 9092 NOT accessible from control node (may need NSG/firewall rules); continuing checks..."
 fi
 
 # 3. Check API versions (broker connectivity)
