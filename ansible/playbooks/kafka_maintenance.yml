@@ -81,11 +81,16 @@
 
     - name: Stop Kafka Broker (Graceful)
       block:
+        - name: Check if Kafka process is running
+          command: pgrep -f kafka.Kafka
+          register: kafka_check
+          ignore_errors: yes
+
         - name: Stop accepting new requests (disable writes)
-          shell: |
-            kill -TERM $(pgrep -f kafka.Kafka) || true
+          command: kill -TERM {{ kafka_check.stdout_lines[0] }}
           become: yes
           register: stop_signal
+          when: kafka_check.rc == 0
           ignore_errors: yes
 
         - name: Wait for graceful shutdown to complete
@@ -102,10 +107,15 @@
           become: yes
           ignore_errors: yes
 
+        - name: Check if Kafka is still running
+          command: pgrep -f kafka.Kafka
+          register: kafka_still_running
+          ignore_errors: yes
+
         - name: Kill Kafka service if still stubborn
-          shell: |
-            systemctl kill -s SIGKILL kafka.service || pkill -9 -f kafka.Kafka || true
+          command: pkill -9 -f kafka.Kafka
           become: yes
+          when: kafka_still_running.rc == 0
           ignore_errors: yes
 
         - name: Stop kafka_exporter (no daemon-reload)
@@ -114,9 +124,15 @@
           become: yes
           ignore_errors: yes
 
+        - name: Check if kafka_exporter is running
+          command: pgrep -f kafka_exporter
+          register: exporter_check
+          ignore_errors: yes
+
         - name: Kill kafka_exporter if still running
-          shell: pkill -9 -f kafka_exporter || true
+          command: pkill -9 -f kafka_exporter
           become: yes
+          when: exporter_check.rc == 0
           ignore_errors: yes
 
         - name: Ensure Kafka is stopped (check all interfaces)
