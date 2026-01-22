@@ -101,10 +101,12 @@
             timeout: "{{ graceful_timeout }}"
           ignore_errors: yes
 
-        - name: Force stop Kafka service (no daemon-reload)
-          shell: |
-            systemctl stop kafka.service || true
-          become: yes
+        - name: Force stop Kafka service
+          ansible.builtin.systemd:
+            name: kafka
+            state: stopped
+            enabled: no
+            daemon_reload: yes
           ignore_errors: yes
 
         - name: Check if Kafka is still running
@@ -112,16 +114,20 @@
           register: kafka_still_running
           ignore_errors: yes
 
-        - name: Kill Kafka service if still stubborn
-          command: pkill -9 -f kafka.Kafka
+        - name: Ensure Kafka process is terminated (fallback)
+          ansible.builtin.shell: pkill -f 'kafka.Kafka'
+          args:
+            warn: false
           become: yes
           when: kafka_still_running.rc == 0
           ignore_errors: yes
 
-        - name: Stop kafka_exporter (no daemon-reload)
-          shell: |
-            systemctl stop kafka_exporter.service || true
-          become: yes
+        - name: Stop kafka_exporter
+          ansible.builtin.systemd:
+            name: kafka_exporter
+            state: stopped
+            enabled: no
+            daemon_reload: yes
           ignore_errors: yes
 
         - name: Check if kafka_exporter is running
@@ -129,8 +135,10 @@
           register: exporter_check
           ignore_errors: yes
 
-        - name: Kill kafka_exporter if still running
-          command: pkill -9 -f kafka_exporter
+        - name: Ensure kafka_exporter process is terminated (fallback)
+          ansible.builtin.shell: pkill -f 'kafka_exporter'
+          args:
+            warn: false
           become: yes
           when: exporter_check.rc == 0
           ignore_errors: yes
