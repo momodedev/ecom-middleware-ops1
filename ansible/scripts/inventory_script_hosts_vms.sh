@@ -18,11 +18,16 @@ vm_names=$(az vm list -g "$resource_group" --query "[?starts_with(name, '${KAFKA
 private_ips=()
 for vm_name in $vm_names; do
     private_ip=$(az vm list-ip-addresses -g "$resource_group" -n "$vm_name" --query "[0].virtualMachine.network.privateIpAddresses[0]" -o tsv)
+    public_ip=$(az vm list-ip-addresses -g "$resource_group" -n "$vm_name" --query "[0].virtualMachine.network.publicIpAddresses[0].ipAddress" -o tsv)
+    
     if [[ -z "$private_ip" || "$private_ip" == "null" ]]; then
         echo "Warning: Could not get private IP for $vm_name" >&2
         continue
     fi
     private_ips+=("$private_ip")
+    # Store public IP (mapped by index/order since we iterate same list)
+    if [[ -z "$public_ip" ]]; then public_ip=""; fi
+    public_ips+=("$public_ip")
 done
 
 echo "[kafka]"
@@ -30,8 +35,14 @@ echo "[kafka]"
 # Kafka node_id starts from 1 (KRaft requirement), but inventory names match VM indices
 index=0
 for ip in "${private_ips[@]}"; do
+    pub="${public_ips[$index]}"
     node_id=$((index + 1))
-    printf 'kafka-broker-%d ansible_host=%s private_ip=%s kafka_node_id=%d\n' "$index" "$ip" "$ip" "$node_id"
+    # Add public_ip var only if it exists
+    if [[ -n "$pub" ]]; then
+        printf 'kafka-broker-%d ansible_host=%s private_ip=%s public_ip=%s kafka_node_id=%d\n' "$index" "$ip" "$ip" "$pub" "$node_id"
+    else
+        printf 'kafka-broker-%d ansible_host=%s private_ip=%s kafka_node_id=%d\n' "$index" "$ip" "$ip" "$node_id"
+    fi
     index=$((index + 1))
 done
 

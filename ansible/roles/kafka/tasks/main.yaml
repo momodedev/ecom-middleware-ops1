@@ -153,9 +153,9 @@
   set_fact:
     kafka_advertised_host: "{{ ansible_host | default(hostvars[inventory_hostname].private_ip) | default(ansible_default_ipv4.address) }}"
 
-- name: Derive external advertised host for Kafka
+- name: Derive external advertised host for Kafka (prefer public_ip if available)
   set_fact:
-    kafka_external_advertised_host: "{{ kafka_external_advertised_host | default(kafka_advertised_host) }}"
+    kafka_external_advertised_host: "{{ public_ip | default(hostvars[inventory_hostname].public_ip) | default(kafka_advertised_host) }}"
 
 - name: Validate kafka_advertised_host
   assert:
