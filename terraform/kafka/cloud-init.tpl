@@ -38,15 +38,43 @@ runcmd:
   - groupadd -f kafka || true
   - useradd -r -g kafka -s /bin/bash kafka || true
   
-  # Format and mount data disk if attached
+  # Format and mount data disk if attached (Supports SCSI and NVMe/PV2)
   - |
-    if [ -b /dev/sdc ]; then
+    DATA_DISK_DEVICE=""
+    # Check LUN 0 (Standard Azure)
+    if [ -e "/dev/disk/azure/scsi1/lun0" ]; then
+      DATA_DISK_DEVICE=$(readlink -f /dev/disk/azure/scsi1/lun0)
+    elif [ -b "/dev/sdc" ]; then
+      DATA_DISK_DEVICE="/dev/sdc"
+    else
+      # Search for NVMe (Premium V2) - Find first unmounted NVMe disk
+      for dev in /dev/nvme*n1; do
+        if [ -b "$dev" ]; then
+           # Check if device or its partitions are mounted
+           if ! lsblk "$dev" -n -o MOUNTPOINT | grep -q "."; then
+             DATA_DISK_DEVICE=$dev
+             break
+           fi
+        fi
+      done
+    fi
+
+    if [ -n "$DATA_DISK_DEVICE" ]; then
       if ! mountpoint -q /data/kafka; then
-        echo "Formatting and mounting data disk..."
-        mkfs.ext4 -F /dev/sdc 2>/dev/null || true
-        mount /dev/sdc /data/kafka 2>/dev/null || true
-        if ! grep -q "/dev/sdc" /etc/fstab; then
-          echo "/dev/sdc /data/kafka ext4 defaults,nofail 0 2" >> /etc/fstab
+        echo "Formatting and mounting data disk: $DATA_DISK_DEVICE"
+        mkfs.ext4 -F "$DATA_DISK_DEVICE" 2>/dev/null || true
+        mount "$DATA_DISK_DEVICE" /data/kafka 2>/dev/null || true
+        
+        # Add to fstab using UUID
+        UUID=$(blkid -s UUID -o value "$DATA_DISK_DEVICE")
+        if [ -n "$UUID" ]; then
+           if ! grep -q "$UUID" /etc/fstab; then
+             echo "UUID=$UUID /data/kafka ext4 defaults,nofail 0 2" >> /etc/fstab
+           fi
+        else
+           if ! grep -q "$DATA_DISK_DEVICE" /etc/fstab; then
+             echo "$DATA_DISK_DEVICE /data/kafka ext4 defaults,nofail 0 2" >> /etc/fstab
+           fi
         fi
         chmod 755 /data/kafka
         chown kafka:kafka /data/kafka
