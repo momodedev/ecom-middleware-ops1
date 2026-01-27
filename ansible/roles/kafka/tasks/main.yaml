@@ -47,6 +47,70 @@
     path: "{{ kafka_workspace }}/bin/kafka-storage.sh"
   register: kafka_binary_check
 
+# ==================== DATA DISK SETUP (Moved from cloud-init) ====================
+- name: Detect available NVMe data disks (Premium V2)
+  shell: |
+    # Find NVMe devices that are NOT the OS disk (which usually has partitions p1, p2, etc.)
+    # We look for large block devices that don't have partitions yet or are not mounted
+    for dev in /dev/nvme*n1; do
+      if [ -b "$dev" ]; then
+        # Skip if it is currently mounted
+        if lsblk "$dev" -n -o MOUNTPOINT | grep -q "."; then continue; fi
+        
+        # This is likely our candidate
+        echo "$dev"
+        exit 0
+      fi
+    done
+    # Fallback for Standard/Premium disks (LUN 0)
+    if [ -L "/dev/disk/azure/scsi1/lun0" ]; then
+      readlink -f /dev/disk/azure/scsi1/lun0
+    elif [ -b "/dev/sdc" ]; then
+      echo "/dev/sdc"
+    fi
+  register: detected_disk_device
+  changed_when: false
+  become: yes
+
+- name: Debug detected disk
+  debug:
+    msg: "Found data disk candidate: {{ detected_disk_device.stdout }}"
+
+- name: Create filesystem on data disk (ext4)
+  filesystem:
+    fstype: ext4
+    dev: "{{ detected_disk_device.stdout }}"
+  when: detected_disk_device.stdout != ""
+  become: yes
+
+- name: Ensure data directory exists
+  file:
+    path: /data/kafka
+    state: directory
+    mode: '0755'
+    owner: kafka
+    group: kafka
+  become: yes
+
+- name: Mount data disk to /data/kafka
+  mount:
+    path: /data/kafka
+    src: "{{ detected_disk_device.stdout }}"
+    fstype: ext4
+    opts: defaults,nofail
+    state: mounted
+  when: detected_disk_device.stdout != ""
+  become: yes
+
+- name: Ensure correct permissions on mount point
+  file:
+    path: /data/kafka
+    state: directory
+    owner: kafka
+    group: kafka
+    mode: '0755'
+  become: yes
+
 - name: Debug - Kafka binary check result
   debug:
     msg: "Kafka binary check for {{ inventory_hostname }}: exists={{ kafka_binary_check.stat.exists }}"
