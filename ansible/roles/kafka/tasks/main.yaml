@@ -56,6 +56,16 @@
   changed_when: false
   become: yes
 
+- name: Stop Kafka service to release disk lock
+  service:
+    name: kafka
+    state: stopped
+  ignore_errors: yes
+  become: yes
+  when: 
+    - data_mount_size.stdout | int > 0
+    - data_mount_size.stdout | int < 50000000
+
 - name: Unmount incorrect data disk (Safety Check)
   mount:
     path: /data/kafka
