@@ -48,62 +48,60 @@
   register: kafka_binary_check
 
 # ==================== DATA DISK SETUP (Moved from cloud-init) ====================
+# ==================== DATA DISK RECOVERY (Fix incorrect mount) ====================
+- name: Check data disk size validity
+  shell: df -P /data/kafka | tail -1 | awk '{print $2}'
+  register: data_mount_size
+  ignore_errors: yes
+  changed_when: false
+  become: yes
+
+- name: Unmount incorrect data disk (Safety Check)
+  mount:
+    path: /data/kafka
+    state: unmounted
+  # If size is less than 50GB (approx 50000000 1k blocks), it's definitely not our 1TB disk. 
+  # It's likely the 2MB bios boot partition we accidentally grabbed.
+  when: 
+    - data_mount_size.stdout | int > 0
+    - data_mount_size.stdout | int < 50000000
+  become: yes
+
+# ==================== DATA DISK SETUP (Moved from cloud-init) ====================
 - name: Detect available data disk
   shell: |
-    # 1. Identify the Root Device (OS Disk) to avoid touching it
-    # findmnt / finds the partition (e.g., nvme0n1p4), lsblk pkname gets parent (nvme0n1)
+    # 1. Identify the Root Device (OS Disk)
     ROOT_PART=$(findmnt -n -o SOURCE /)
+    # Get the parent disk of the root partition
     ROOT_DISK=$(lsblk -no pkname "$ROOT_PART")
     
-    # Helper to check if device is candidate
-    check_candidate() {
-        local dev=$1
-        # Resolve symlinks to names (e.g. /dev/sdc)
-        local real_dev=$(readlink -f "$dev")
-        local dev_name=$(basename "$real_dev")
+    # 2. Iterate ONLY over physical DISKS (TYPE="disk")
+    # This prevents accidentally selecting partitions (like nvme0n1p1)
+    # lsblk -d: device (no partitions)
+    # -n: no header
+    # -p: full path
+    # -o: output columns
+    
+    CANDIDATES=$(lsblk -dpno NAME,TYPE | awk '$2=="disk" {print $1}')
+    
+    for dev in $CANDIDATES; do
+        dev_name=$(basename "$dev")
         
-        # Skip if it corresponds to the root disk
-        if [[ "$dev_name" == "$ROOT_DISK" ]]; then return 1; fi
+        # Skip if it is the root disk
+        if [[ "$dev_name" == "$ROOT_DISK" ]]; then continue; fi
+        
+        # Skip if it is small (< 10GB) - ignores small metadata devices/drives
+        size=$(lsblk -bdno SIZE "$dev" | head -1)
+        if [ "$size" -lt 10737418240 ]; then continue; fi
         
         # Skip if it is already mounted (anywhere)
-        # lsblk on device returns mountpoints of children/partitions too
-        if lsblk "$real_dev" -n -o MOUNTPOINT | grep -q "."; then return 1; fi
-
-        echo "$real_dev"
-        return 0
-    }
-
-    # 2. Search NVMe devices (Premium v2 or v6) - cover n1, n2, etc. (namespace ids)
-    for dev in /dev/nvme*n*; do
-      if [ -b "$dev" ]; then
-        if check_candidate "$dev"; then exit 0; fi
-      fi
+        if lsblk "$dev" -n -o MOUNTPOINT | grep -q "."; then continue; fi
+        
+        # Found it!
+        echo "$dev"
+        exit 0
     done
-
-    # 3. Search Standard Azure LUNs (LUN 0)
-    if [ -L "/dev/disk/azure/scsi1/lun0" ]; then
-        if check_candidate "/dev/disk/azure/scsi1/lun0"; then exit 0; fi
-    # Check LUN 1 as fallback 
-    elif [ -L "/dev/disk/azure/scsi1/lun1" ]; then
-        if check_candidate "/dev/disk/azure/scsi1/lun1"; then exit 0; fi
-    fi
-     
-    # 4. Search fallback legacy sd* devices
-    if [ -b "/dev/sdc" ]; then
-        if check_candidate "/dev/sdc"; then exit 0; fi
-    elif [ -b "/dev/sdd" ]; then
-        if check_candidate "/dev/sdd"; then exit 0; fi
-    fi
     
-    # 5. Last resort: Find ANY unmounted block device > 100GB (likely our data disk)
-    for dev in $(lsblk -lndo NAME,TYPE,SIZE | grep 'disk' | awk '$3 ~ /T|G/ {print "/dev/"$1}'); do
-         # Skip small OS disks (< 30G)
-         size=$(lsblk -bdno SIZE "$dev" | head -1)
-         if [ "$size" -lt 32212254720 ]; then continue; fi
-         
-         if check_candidate "$dev"; then exit 0; fi
-    done
-
     exit 1
   args:
     executable: /bin/bash
