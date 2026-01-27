@@ -50,24 +50,22 @@
 # ==================== DATA DISK SETUP (Moved from cloud-init) ====================
 - name: Detect available NVMe data disks (Premium V2)
   shell: |
-    # Find NVMe devices that are NOT the OS disk (which usually has partitions p1, p2, etc.)
-    # We look for large block devices that don't have partitions yet or are not mounted
     for dev in /dev/nvme*n1; do
       if [ -b "$dev" ]; then
-        # Skip if it is currently mounted
-        if lsblk "$dev" -n -o MOUNTPOINT | grep -q "."; then continue; fi
-        
-        # This is likely our candidate
-        echo "$dev"
-        exit 0
+        MOUNT_POINT=$(lsblk -n -o MOUNTPOINT "$dev")
+        if [ -z "$MOUNT_POINT" ]; then
+          echo "$dev"
+          exit 0
+        fi
       fi
     done
-    # Fallback for Standard/Premium disks (LUN 0)
     if [ -L "/dev/disk/azure/scsi1/lun0" ]; then
       readlink -f /dev/disk/azure/scsi1/lun0
     elif [ -b "/dev/sdc" ]; then
       echo "/dev/sdc"
     fi
+  args:
+    executable: /bin/bash
   register: detected_disk_device
   changed_when: false
   become: yes
