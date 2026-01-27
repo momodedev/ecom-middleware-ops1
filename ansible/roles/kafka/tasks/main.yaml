@@ -48,25 +48,67 @@
   register: kafka_binary_check
 
 # ==================== DATA DISK SETUP (Moved from cloud-init) ====================
-- name: Detect available NVMe data disks (Premium V2)
+- name: Detect available data disk
   shell: |
-    for dev in /dev/nvme*n1; do
+    # 1. Identify the Root Device (OS Disk) to avoid touching it
+    # findmnt / finds the partition (e.g., nvme0n1p4), lsblk pkname gets parent (nvme0n1)
+    ROOT_PART=$(findmnt -n -o SOURCE /)
+    ROOT_DISK=$(lsblk -no pkname "$ROOT_PART")
+    
+    # Helper to check if device is candidate
+    check_candidate() {
+        local dev=$1
+        # Resolve symlinks to names (e.g. /dev/sdc)
+        local real_dev=$(readlink -f "$dev")
+        local dev_name=$(basename "$real_dev")
+        
+        # Skip if it corresponds to the root disk
+        if [[ "$dev_name" == "$ROOT_DISK" ]]; then return 1; fi
+        
+        # Skip if it is already mounted (anywhere)
+        # lsblk on device returns mountpoints of children/partitions too
+        if lsblk "$real_dev" -n -o MOUNTPOINT | grep -q "."; then return 1; fi
+
+        echo "$real_dev"
+        return 0
+    }
+
+    # 2. Search NVMe devices (Premium v2 or v6) - cover n1, n2, etc. (namespace ids)
+    for dev in /dev/nvme*n*; do
       if [ -b "$dev" ]; then
-        MOUNT_POINT=$(lsblk -n -o MOUNTPOINT "$dev")
-        if [ -z "$MOUNT_POINT" ]; then
-          echo "$dev"
-          exit 0
-        fi
+        if check_candidate "$dev"; then exit 0; fi
       fi
     done
+
+    # 3. Search Standard Azure LUNs (LUN 0)
     if [ -L "/dev/disk/azure/scsi1/lun0" ]; then
-      readlink -f /dev/disk/azure/scsi1/lun0
-    elif [ -b "/dev/sdc" ]; then
-      echo "/dev/sdc"
+        if check_candidate "/dev/disk/azure/scsi1/lun0"; then exit 0; fi
+    # Check LUN 1 as fallback 
+    elif [ -L "/dev/disk/azure/scsi1/lun1" ]; then
+        if check_candidate "/dev/disk/azure/scsi1/lun1"; then exit 0; fi
     fi
+     
+    # 4. Search fallback legacy sd* devices
+    if [ -b "/dev/sdc" ]; then
+        if check_candidate "/dev/sdc"; then exit 0; fi
+    elif [ -b "/dev/sdd" ]; then
+        if check_candidate "/dev/sdd"; then exit 0; fi
+    fi
+    
+    # 5. Last resort: Find ANY unmounted block device > 100GB (likely our data disk)
+    for dev in $(lsblk -lndo NAME,TYPE,SIZE | grep 'disk' | awk '$3 ~ /T|G/ {print "/dev/"$1}'); do
+         # Skip small OS disks (< 30G)
+         size=$(lsblk -bdno SIZE "$dev" | head -1)
+         if [ "$size" -lt 32212254720 ]; then continue; fi
+         
+         if check_candidate "$dev"; then exit 0; fi
+    done
+
+    exit 1
   args:
     executable: /bin/bash
   register: detected_disk_device
+  failed_when: detected_disk_device.rc != 0
   changed_when: false
   become: yes
 
