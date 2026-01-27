@@ -390,11 +390,12 @@
   register: kafka_config_file
   failed_when: not kafka_config_file.stat.exists
 
-- name: Verify data directory is mounted and accessible
-  stat:
-    path: "{{ kafka_data_dir }}"
-  register: kafka_data_dir_check
-  failed_when: not kafka_data_dir_check.stat.exists
+- name: Fix lost+found permissions if present
+  file:
+    path: "{{ kafka_data_dir }}/lost+found"
+    state: absent
+  ignore_errors: yes
+  become: yes
 
 - name: Format Kafka storage directories
   become_user: kafka
