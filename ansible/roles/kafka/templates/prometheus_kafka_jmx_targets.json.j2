@@ -1,0 +1,12 @@
+[
+  {
+    "labels": {
+      "job": "kafka-jmx"
+    },
+    "targets": [
+    {% for host in groups['kafka'] | sort %}
+      "{{ hostvars[host]['private_ip'] }}:9999"{% if not loop.last %},{% endif %}
+    {% endfor %}
+    ]
+  }
+]

@@ -19,7 +19,7 @@
   "links": [],
   "panels": [
     {
-      "datasource": "Managed_Prometheus_azuremonitor",
+      "datasource": "Prometheus",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -61,7 +61,7 @@
       "pluginVersion": "8.0.0",
       "targets": [
         {
-          "expr": "count(kafka_server_BrokerTopicMetrics_BytesInPerSec_total{job=\"kafka-broker\"}) or vector(0)",
+          "expr": "count(kafka_server_BrokerTopicMetrics_BytesInPerSec_total{job=\"kafka-jmx\"}) or vector(0)",
           "refId": "A"
         }
       ],
@@ -69,7 +69,7 @@
       "type": "stat"
     },
     {
-      "datasource": "Managed_Prometheus_azuremonitor",
+      "datasource": "Prometheus",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -115,7 +115,7 @@
       "pluginVersion": "8.0.0",
       "targets": [
         {
-          "expr": "count(kafka_raft_Quorum_Leader{job=\"kafka-broker\"} > 0) or vector(0)",
+          "expr": "count(kafka_raft_Quorum_Leader{job=\"kafka-jmx\"} > 0) or vector(0)",
           "refId": "A"
         }
       ],
@@ -123,7 +123,7 @@
       "type": "stat"
     },
     {
-      "datasource": "Managed_Prometheus_azuremonitor",
+      "datasource": "Prometheus",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -177,7 +177,7 @@
       "type": "stat"
     },
     {
-      "datasource": "Managed_Prometheus_azuremonitor",
+      "datasource": "Prometheus",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -215,7 +215,7 @@
       "pluginVersion": "8.0.0",
       "targets": [
         {
-          "expr": "count(kafka_raft_Quorum_State{job=\"kafka-broker\"}) or vector(0)",
+          "expr": "count(kafka_raft_Quorum_State{job=\"kafka-jmx\"}) or vector(0)",
           "refId": "A"
         }
       ],
@@ -223,7 +223,7 @@
       "type": "stat"
     },
     {
-      "datasource": "Managed_Prometheus_azuremonitor",
+      "datasource": "Prometheus",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -294,7 +294,7 @@
       },
       "targets": [
         {
-          "expr": "node_memory_MemTotal_bytes{job=\"kafka-broker\"} - node_memory_MemAvailable_bytes{job=\"kafka-broker\"}",
+          "expr": "node_memory_MemTotal_bytes{job=\"node-exporter\"} - node_memory_MemAvailable_bytes{job=\"node-exporter\"}",
           "legendFormat": "{{instance}}"
         }
       ],
@@ -302,7 +302,7 @@
       "type": "timeseries"
     },
     {
-      "datasource": "Managed_Prometheus_azuremonitor",
+      "datasource": "Prometheus",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -373,7 +373,7 @@
       },
       "targets": [
         {
-          "expr": "1 - avg by (instance) (rate(node_cpu_seconds_total{mode=\"idle\", job=\"kafka-broker\"}[5m]))",
+          "expr": "1 - avg by (instance) (rate(node_cpu_seconds_total{mode=\"idle\", job=\"node-exporter\"}[5m]))",
           "legendFormat": "{{instance}}"
         }
       ],
@@ -381,7 +381,7 @@
       "type": "timeseries"
     },
     {
-      "datasource": "Managed_Prometheus_azuremonitor",
+      "datasource": "Prometheus",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -452,7 +452,7 @@
       },
       "targets": [
         {
-          "expr": "node_filesystem_avail_bytes{mountpoint=\"/\", fstype!=\"tmpfs\", job=\"kafka-broker\"}",
+          "expr": "node_filesystem_avail_bytes{mountpoint=\"/\", fstype!=\"tmpfs\", job=\"node-exporter\"}",
           "legendFormat": "{{instance}}"
         }
       ],
@@ -460,7 +460,7 @@
       "type": "timeseries"
     },
     {
-      "datasource": "Managed_Prometheus_azuremonitor",
+      "datasource": "Prometheus",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -531,7 +531,7 @@
       },
       "targets": [
         {
-          "expr": "node_filefd_allocated{job=\"kafka-broker\"}",
+          "expr": "node_filefd_allocated{job=\"node-exporter\"}",
           "legendFormat": "{{instance}}"
         }
       ],
@@ -539,7 +539,7 @@
       "type": "timeseries"
     },
     {
-      "datasource": "Managed_Prometheus_azuremonitor",
+      "datasource": "Prometheus",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -610,7 +610,7 @@
       },
       "targets": [
         {
-          "expr": "kafka_server_KafkaRequestHandlerPool_totalTimeMs{job=\"kafka-broker\"}",
+          "expr": "kafka_server_KafkaRequestHandlerPool_totalTimeMs{job=\"kafka-jmx\"}",
           "legendFormat": "{{instance}}"
         }
       ],
@@ -618,7 +618,7 @@
       "type": "timeseries"
     },
     {
-      "datasource": "Managed_Prometheus_azuremonitor",
+      "datasource": "Prometheus",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -689,7 +689,7 @@
       },
       "targets": [
         {
-          "expr": "kafka_server_DelayedOperationPurgatory_PurgatorySize{job=\"kafka-broker\"}",
+          "expr": "kafka_server_DelayedOperationPurgatory_PurgatorySize{job=\"kafka-jmx\"}",
           "legendFormat": "{{instance}}"
         }
       ],
@@ -697,7 +697,7 @@
       "type": "timeseries"
     },
     {
-      "datasource": "Managed_Prometheus_azuremonitor",
+      "datasource": "Prometheus",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -776,7 +776,7 @@
       "type": "timeseries"
     },
     {
-      "datasource": "Managed_Prometheus_azuremonitor",
+      "datasource": "Prometheus",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -847,7 +847,7 @@
       },
       "targets": [
         {
-          "expr": "kafka_server_ReplicaManager_LeaderCount{job=\"kafka-broker\"}",
+          "expr": "kafka_server_ReplicaManager_LeaderCount{job=\"kafka-jmx\"}",
           "legendFormat": "{{instance}} - {{topic}} - {{partition}}"
         }
       ],
@@ -855,7 +855,7 @@
       "type": "timeseries"
     },
     {
-      "datasource": "Managed_Prometheus_azuremonitor",
+      "datasource": "Prometheus",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -901,7 +901,7 @@
       "type": "stat"
     },
     {
-      "datasource": "Managed_Prometheus_azuremonitor",
+      "datasource": "Prometheus",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -947,7 +947,7 @@
       "type": "stat"
     },
     {
-      "datasource": "Managed_Prometheus_azuremonitor",
+      "datasource": "Prometheus",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -1030,7 +1030,7 @@
       "type": "timeseries"
     },
     {
-      "datasource": "Managed_Prometheus_azuremonitor",
+      "datasource": "Prometheus",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -1109,7 +1109,7 @@
       "type": "timeseries"
     },
     {
-      "datasource": "Managed_Prometheus_azuremonitor",
+      "datasource": "Prometheus",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -1188,7 +1188,7 @@
       "type": "timeseries"
     },
     {
-      "datasource": "Managed_Prometheus_azuremonitor",
+      "datasource": "Prometheus",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -1259,7 +1259,7 @@
       },
       "targets": [
         {
-          "expr": "kafka_raft_Replica_LogEndOffset{job=\"kafka-broker\"}",
+          "expr": "kafka_raft_Replica_LogEndOffset{job=\"kafka-jmx\"}",
           "legendFormat": "{{instance}}"
         }
       ],
@@ -1267,7 +1267,7 @@
       "type": "timeseries"
     },
     {
-      "datasource": "Managed_Prometheus_azuremonitor",
+      "datasource": "Prometheus",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -1338,7 +1338,7 @@
       },
       "targets": [
         {
-          "expr": "kafka_raft_Replica_LogHighWatermark{job=\"kafka-broker\"}",
+          "expr": "kafka_raft_Replica_LogHighWatermark{job=\"kafka-jmx\"}",
           "legendFormat": "{{instance}}"
         }
       ],
@@ -1346,7 +1346,7 @@
       "type": "timeseries"
     },
     {
-      "datasource": "Managed_Prometheus_azuremonitor",
+      "datasource": "Prometheus",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -1417,7 +1417,7 @@
       },
       "targets": [
         {
-          "expr": "kafka_server_ClientId_Request_KafkaRequestHandler_totalTimeMs{job=\"kafka-broker\"}",
+          "expr": "kafka_server_ClientId_Request_KafkaRequestHandler_totalTimeMs{job=\"kafka-jmx\"}",
           "legendFormat": "{{instance}} - {{clientId}}"
         }
       ],
@@ -1425,7 +1425,7 @@
       "type": "timeseries"
     },
     {
-      "datasource": "Managed_Prometheus_azuremonitor",
+      "datasource": "Prometheus",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -1496,7 +1496,7 @@
       },
       "targets": [
         {
-          "expr": "sum(kafka_raft_Replica_UncommittedRecords{job=\"kafka-broker\"}) by (instance)",
+          "expr": "sum(kafka_raft_Replica_UncommittedRecords{job=\"kafka-jmx\"}) by (instance)",
           "legendFormat": "{{instance}}"
         }
       ],
@@ -1507,7 +1507,12 @@
   "refresh": "10s",
   "schemaVersion": 38,
   "style": "dark",
-  "tags": ["kafka", "kraft", "monitoring", "cluster"],
+  "tags": [
+    "kafka",
+    "kraft",
+    "monitoring",
+    "cluster"
+  ],
   "templating": {
     "list": [
       {
