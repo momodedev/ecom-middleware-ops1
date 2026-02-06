@@ -2,12 +2,42 @@
   "editable": true,
   "gnetId": null,
   "graphTooltip": 0,
-  "links":,
-  "panels":,
+  "links": [],
+  "panels": [
+    {
+      "id": 2,
+      "title": "Brokers Online",
+      "type": "stat",
+      "datasource": "Prometheus",
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 0,
+        "y": 1
+      },
+      "targets": [
+        {
+          "expr": "count(up{job=\"kafka-jmx\"} == 1)",
+          "refId": "A"
+        }
+      ],
       "fieldConfig": {
         "defaults": {
-          "color": { "mode": "thresholds" },
-          "thresholds": { "steps": [{ "color": "red", "value": null }, { "color": "green", "value": 1 }] }
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "green",
+                "value": 1
+              }
+            ]
+          }
         }
       }
     },
@@ -15,15 +45,40 @@
       "id": 3,
       "title": "Active Controllers",
       "type": "stat",
-      "datasource": "Managed_Prometheus_azuremonitor",
-      "gridPos": { "h": 4, "w": 6, "x": 6, "y": 1 },
+      "datasource": "Prometheus",
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 6,
+        "y": 1
+      },
       "targets": [
-        { "expr": "sum(kafka_controller_KafkaController_ActiveControllerCount)", "refId": "A" }
+        {
+          "expr": "sum(kafka_controller_KafkaController_ActiveControllerCount{job=\"kafka-jmx\"})",
+          "refId": "A"
+        }
       ],
       "fieldConfig": {
         "defaults": {
-          "color": { "mode": "thresholds" },
-          "thresholds": { "steps": [{ "color": "red", "value": null }, { "color": "green", "value": 1 }, { "color": "red", "value": 2 }] }
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "green",
+                "value": 1
+              },
+              {
+                "color": "red",
+                "value": 2
+              }
+            ]
+          }
         }
       }
     },
@@ -31,13 +86,36 @@
       "id": 4,
       "title": "Under-Replicated Partitions (URP)",
       "type": "stat",
-      "datasource": "Managed_Prometheus_azuremonitor",
-      "gridPos": { "h": 4, "w": 6, "x": 12, "y": 1 },
-      "targets":,
+      "datasource": "Prometheus",
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 12,
+        "y": 1
+      },
+      "targets": [
+        {
+          "expr": "sum(kafka_server_ReplicaManager_UnderReplicatedPartitions{job=\"kafka-jmx\"})",
+          "refId": "A"
+        }
+      ],
       "fieldConfig": {
         "defaults": {
-          "color": { "mode": "thresholds" },
-          "thresholds": { "steps": [{ "color": "green", "value": null }, { "color": "red", "value": 1 }] }
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 1
+              }
+            ]
+          }
         }
       }
     },
@@ -45,102 +123,224 @@
       "id": 5,
       "title": "Offline Partitions Count",
       "type": "stat",
-      "datasource": "Managed_Prometheus_azuremonitor",
-      "gridPos": { "h": 4, "w": 6, "x": 18, "y": 1 },
+      "datasource": "Prometheus",
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 18,
+        "y": 1
+      },
       "targets": [
-        { "expr": "sum(kafka_controller_KafkaController_OfflinePartitionsCount)", "refId": "A" }
+        {
+          "expr": "sum(kafka_controller_KafkaController_OfflinePartitionsCount{job=\"kafka-jmx\"})",
+          "refId": "A"
+        }
       ],
       "fieldConfig": {
         "defaults": {
-          "color": { "mode": "thresholds" },
-          "thresholds": { "steps": [{ "color": "green", "value": null }, { "color": "red", "value": 1 }] }
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 1
+              }
+            ]
+          }
         }
       }
     },
     {
       "title": "Traffic & Performance (RED Method)",
       "type": "row",
-      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 5 },
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 5
+      },
       "collapsed": false
     },
     {
       "id": 6,
       "title": "Throughput (Bytes In/Out)",
       "type": "timeseries",
-      "datasource": "Managed_Prometheus_azuremonitor",
-      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 6 },
-      "targets":))", "legendFormat": "Inbound" },
-        { "expr": "sum(rate(kafka_server_BrokerTopicMetrics_BytesOutPerSec_total[5m]))", "legendFormat": "Outbound" }
+      "datasource": "Prometheus",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 6
+      },
+      "targets": [
+        {
+          "expr": "sum(rate(kafka_server_BrokerTopicMetrics_BytesInPerSec_total{job=\"kafka-jmx\"}[5m]))",
+          "legendFormat": "Inbound"
+        },
+        {
+          "expr": "sum(rate(kafka_server_BrokerTopicMetrics_BytesOutPerSec_total{job=\"kafka-jmx\"}[5m]))",
+          "legendFormat": "Outbound"
+        }
       ],
-      "fieldConfig": { "defaults": { "unit": "Bps" } }
+      "fieldConfig": {
+        "defaults": {
+          "unit": "Bps"
+        }
+      }
     },
     {
       "id": 7,
-      "title": "P99 Request Latency",
+      "title": "Request Queue Size",
       "type": "timeseries",
-      "datasource": "Managed_Prometheus_azuremonitor",
-      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 6 },
-      "targets":,
-      "fieldConfig": { "defaults": { "unit": "ms" } }
+      "datasource": "Prometheus",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 6
+      },
+      "targets": [
+        {
+          "expr": "kafka_network_RequestChannel_RequestQueueSize{job=\"kafka-jmx\"}",
+          "legendFormat": "{{instance}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        }
+      }
     },
     {
       "title": "Consumer Health",
       "type": "row",
-      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 14 },
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 14
+      },
       "collapsed": false
     },
     {
       "id": 8,
       "title": "Total Consumer Lag per Group",
       "type": "timeseries",
-      "datasource": "Managed_Prometheus_azuremonitor",
-      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 15 },
+      "datasource": "Prometheus",
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 15
+      },
       "targets": [
-        { "expr": "sum by (consumergroup) (kafka_consumergroup_lag)", "legendFormat": "{{consumergroup}}" }
+        {
+          "expr": "sum by (consumergroup) (kafka_consumergroup_lag{job=\"kafka-exporter\"})",
+          "legendFormat": "{{consumergroup}}"
+        }
       ],
-      "fieldConfig": { "defaults": { "unit": "short" } }
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        }
+      }
     },
     {
       "title": "JVM & Infrastructure (USE Method)",
       "type": "row",
-      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 23 },
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 23
+      },
       "collapsed": false
     },
     {
       "id": 9,
       "title": "JVM Heap Memory Usage",
       "type": "timeseries",
-      "datasource": "Managed_Prometheus_azuremonitor",
-      "gridPos": { "h": 8, "w": 8, "x": 0, "y": 24 },
+      "datasource": "Prometheus",
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 0,
+        "y": 24
+      },
       "targets": [
-        { "expr": "java_lang_Memory_HeapMemoryUsage_used", "legendFormat": "{{instance}}" }
+        {
+          "expr": "java_lang_Memory_HeapMemoryUsage_used{job=\"kafka-jmx\"}",
+          "legendFormat": "{{instance}}"
+        }
       ],
-      "fieldConfig": { "defaults": { "unit": "bytes" } }
+      "fieldConfig": {
+        "defaults": {
+          "unit": "bytes"
+        }
+      }
     },
     {
       "id": 10,
-      "title": "JVM GC Time (Young Gen)",
+      "title": "JVM GC Time",
       "type": "timeseries",
-      "datasource": "Managed_Prometheus_azuremonitor",
-      "gridPos": { "h": 8, "w": 8, "x": 8, "y": 24 },
-      "targets":)", "legendFormat": "{{instance}}" }
+      "datasource": "Prometheus",
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 8,
+        "y": 24
+      },
+      "targets": [
+        {
+          "expr": "rate(java_lang_GarbageCollector_CollectionTime{job=\"kafka-jmx\"}[5m])",
+          "legendFormat": "{{instance}}"
+        }
       ],
-      "fieldConfig": { "defaults": { "unit": "ms" } }
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ms"
+        }
+      }
     },
     {
       "id": 11,
       "title": "Request Handler Idle %",
       "type": "timeseries",
-      "datasource": "Managed_Prometheus_azuremonitor",
-      "gridPos": { "h": 8, "w": 8, "x": 16, "y": 24 },
-      "targets":,
-      "fieldConfig": { "defaults": { "unit": "percentunit" } }
+      "datasource": "Prometheus",
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 16,
+        "y": 24
+      },
+      "targets": [
+        {
+          "expr": "kafka_server_KafkaRequestHandlerPool_RequestHandlerAvgIdlePercent{job=\"kafka-jmx\"}",
+          "legendFormat": "{{instance}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit"
+        }
+      }
     }
   ],
   "refresh": "10s",
   "schemaVersion": 38,
   "style": "dark",
-  "tags": ["kafka", "monitoring", "cluster", "kraft"],
-  "title": "Kafka Cluster - KRaft Mode",
+  "tags": [
+    "kafka",
+    "monitoring",
+    "cluster",
+    "kraft"
+  ],
+  "title": "Kafka Cluster - KRaft Mode Enhanced",
   "uid": "refined-kafka-kraft-monitoring"
 }
