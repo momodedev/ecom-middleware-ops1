@@ -56,6 +56,13 @@
   changed_when: false
   become: yes
 
+- name: Check if /data/kafka is already mounted
+  shell: findmnt -n -o SOURCE /data/kafka
+  register: existing_data_device
+  failed_when: false
+  changed_when: false
+  become: yes
+
 - name: Stop Kafka service to release disk lock
   service:
     name: kafka
@@ -119,16 +126,30 @@
   failed_when: detected_disk_device.rc != 0
   changed_when: false
   become: yes
+  when: existing_data_device.stdout == ""
+
+- name: Use existing mounted data device when available
+  set_fact:
+    detected_disk_device:
+      stdout: "{{ existing_data_device.stdout }}"
+  when: existing_data_device.stdout != ""
+
+- name: Fail if no data disk is available
+  fail:
+    msg: "No available data disk found and /data/kafka is not mounted. Ensure a data disk is attached or pre-mounted."
+  when:
+    - existing_data_device.stdout == ""
+    - (detected_disk_device.stdout | default("")) == ""
 
 - name: Debug detected disk
   debug:
-    msg: "Found data disk candidate: {{ detected_disk_device.stdout }}"
+    msg: "Found data disk candidate: {{ detected_disk_device.stdout | default('') }}"
 
 - name: Create filesystem on data disk (ext4)
   filesystem:
     fstype: ext4
     dev: "{{ detected_disk_device.stdout }}"
-  when: detected_disk_device.stdout != ""
+  when: (detected_disk_device.stdout | default("")) != ""
   become: yes
 
 - name: Ensure data directory exists
@@ -147,7 +168,7 @@
     fstype: ext4
     opts: defaults,nofail
     state: mounted
-  when: detected_disk_device.stdout != ""
+  when: (detected_disk_device.stdout | default("")) != ""
   become: yes
 
 - name: Ensure correct permissions on mount point
