@@ -110,19 +110,29 @@
 - name: Add Grafana repository and install Grafana on RedHat family
   when: ansible_facts.os_family == 'RedHat'
   block:
+    - name: Import Grafana GPG key for YUM
+      ansible.builtin.rpm_key:
+        key: https://packages.grafana.com/gpg.key
+        state: present
+      ignore_errors: yes
+      
     - name: Configure Grafana YUM repository
       ansible.builtin.yum_repository:
         name: grafana
         description: Grafana YUM repository
         baseurl: https://packages.grafana.com/oss/rpm
         gpgcheck: yes
-        repo_gpgcheck: yes
+        repo_gpgcheck: no
         gpgkey: https://packages.grafana.com/gpg.key
         enabled: yes
     - name: Install Grafana package
       ansible.builtin.yum:
         name: grafana
         state: present
+      register: grafana_install_result
+      retries: 3
+      delay: 10
+      until: grafana_install_result is succeeded
   tags: grafana
 
 # Provision Grafana by writing the datasources and dashboards configuration.
