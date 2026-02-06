@@ -23,37 +23,7 @@
       "fieldConfig": {
         "defaults": {
           "color": {
-            "mode": "palette-classic"
-          },
-          "custom": {
-            "axisCenteredZero": false,
-            "axisColorMode": "text",
-            "axisLabel": "",
-            "axisPlacement": "auto",
-            "barAlignment": 0,
-            "drawStyle": "line",
-            "fillOpacity": 0,
-            "gradientMode": "none",
-            "hideFrom": {
-              "tooltip": false,
-              "viz": false,
-              "legend": false
-            },
-            "lineInterpolation": "linear",
-            "lineWidth": 1,
-            "pointSize": 5,
-            "scaleDistribution": {
-              "type": "linear"
-            },
-            "showPoints": "auto",
-            "spanNulls": false,
-            "stacking": {
-              "group": "A",
-              "mode": "none"
-            },
-            "thresholdsStyle": {
-              "mode": "off"
-            }
+            "mode": "thresholds"
           },
           "mappings": [],
           "thresholds": {
@@ -62,9 +32,14 @@
               {
                 "color": "green",
                 "value": null
+              },
+              {
+                "color": "red",
+                "value": 2
               }
             ]
-          }
+          },
+          "unit": "short"
         },
         "overrides": []
       },
@@ -74,27 +49,24 @@
         "x": 0,
         "y": 0
       },
-      "id": 2,
+      "id": 1,
       "options": {
-        "legend": {
-          "calcs": [],
-          "displayMode": "list",
-          "placement": "bottom",
-          "showLegend": true
-        },
-        "tooltip": {
-          "mode": "single",
-          "sort": "none"
-        }
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "textMode": "auto",
+        "wideLayout": true
       },
+      "pluginVersion": "8.0.0",
       "targets": [
         {
-          "expr": "sum(kafka_server_ReplicaManager_LeaderCount)",
+          "expr": "count(kafka_server_BrokerTopicMetrics_BytesInPerSec_total{job=\"kafka-broker\"}) or vector(0)",
           "refId": "A"
         }
       ],
       "title": "Brokers Online",
-      "type": "timeseries"
+      "type": "stat"
     },
     {
       "datasource": "Managed_Prometheus_azuremonitor",
@@ -112,6 +84,64 @@
                 "value": null
               },
               {
+                "color": "yellow",
+                "value": 1
+              },
+              {
+                "color": "red",
+                "value": 0
+              }
+            ]
+          },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 6,
+        "x": 6,
+        "y": 0
+      },
+      "id": 2,
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "textMode": "auto",
+        "wideLayout": true
+      },
+      "pluginVersion": "8.0.0",
+      "targets": [
+        {
+          "expr": "count(kafka_raft_Quorum_Leader{job=\"kafka-broker\"} > 0) or vector(0)",
+          "refId": "A"
+        }
+      ],
+      "title": "KRaft Leaders",
+      "type": "stat"
+    },
+    {
+      "datasource": "Managed_Prometheus_azuremonitor",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 2
+              },
+              {
                 "color": "red",
                 "value": 1
               }
@@ -124,7 +154,7 @@
       "gridPos": {
         "h": 8,
         "w": 6,
-        "x": 6,
+        "x": 12,
         "y": 0
       },
       "id": 3,
@@ -139,11 +169,11 @@
       "pluginVersion": "8.0.0",
       "targets": [
         {
-          "expr": "sum(kafka_controller_KafkaController_ActiveControllerCount)",
+          "expr": "sum(kafka_server_ReplicaManager_UnderReplicatedPartitions) or vector(0)",
           "refId": "A"
         }
       ],
-      "title": "Active Controllers",
+      "title": "Under Replicated Partitions",
       "type": "stat"
     },
     {
@@ -160,14 +190,6 @@
               {
                 "color": "green",
                 "value": null
-              },
-              {
-                "color": "yellow",
-                "value": 1
-              },
-              {
-                "color": "red",
-                "value": 5
               }
             ]
           },
@@ -178,7 +200,7 @@
       "gridPos": {
         "h": 8,
         "w": 6,
-        "x": 12,
+        "x": 18,
         "y": 0
       },
       "id": 4,
@@ -193,65 +215,11 @@
       "pluginVersion": "8.0.0",
       "targets": [
         {
-          "expr": "sum(kafka_controller_KafkaController_UncleanLeaderElectionsPerSec)",
+          "expr": "count(kafka_raft_Quorum_State{job=\"kafka-broker\"}) or vector(0)",
           "refId": "A"
         }
       ],
-      "title": "Unclean Leader Election Rate",
-      "type": "stat"
-    },
-    {
-      "datasource": "Managed_Prometheus_azuremonitor",
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "thresholds"
-          },
-          "mappings": [],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              },
-              {
-                "color": "yellow",
-                "value": 1
-              },
-              {
-                "color": "red",
-                "value": 10
-              }
-            ]
-          },
-          "unit": "short"
-        },
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 8,
-        "w": 6,
-        "x": 18,
-        "y": 0
-      },
-      "id": 5,
-      "options": {
-        "colorMode": "background",
-        "graphMode": "none",
-        "justifyMode": "auto",
-        "orientation": "auto",
-        "textMode": "auto",
-        "wideLayout": true
-      },
-      "pluginVersion": "8.0.0",
-      "targets": [
-        {
-          "expr": "sum(kafka_server_ReplicaManager_UnderReplicatedPartitions)",
-          "refId": "A"
-        }
-      ],
-      "title": "Under Replicated Partitions",
+      "title": "KRaft Quorum Size",
       "type": "stat"
     },
     {
@@ -311,7 +279,7 @@
         "x": 0,
         "y": 8
       },
-      "id": 6,
+      "id": 5,
       "options": {
         "legend": {
           "calcs": [],
@@ -390,7 +358,7 @@
         "x": 6,
         "y": 8
       },
-      "id": 7,
+      "id": 6,
       "options": {
         "legend": {
           "calcs": [],
@@ -469,7 +437,7 @@
         "x": 12,
         "y": 8
       },
-      "id": 8,
+      "id": 7,
       "options": {
         "legend": {
           "calcs": [],
@@ -548,7 +516,7 @@
         "x": 18,
         "y": 8
       },
-      "id": 9,
+      "id": 8,
       "options": {
         "legend": {
           "calcs": [],
@@ -627,7 +595,7 @@
         "x": 0,
         "y": 16
       },
-      "id": 10,
+      "id": 9,
       "options": {
         "legend": {
           "calcs": [],
@@ -642,8 +610,8 @@
       },
       "targets": [
         {
-          "expr": "kafka_server_ReplicaManager_LeaderLogEndOffset{job=\"kafka-broker\"}",
-          "legendFormat": "{{instance}} - {{topic}} - {{partition}}"
+          "expr": "kafka_server_KafkaRequestHandlerPool_totalTimeMs{job=\"kafka-broker\"}",
+          "legendFormat": "{{instance}}"
         }
       ],
       "title": "JVM Memory Used",
@@ -706,7 +674,7 @@
         "x": 6,
         "y": 16
       },
-      "id": 11,
+      "id": 10,
       "options": {
         "legend": {
           "calcs": [],
@@ -785,7 +753,7 @@
         "x": 12,
         "y": 16
       },
-      "id": 12,
+      "id": 11,
       "options": {
         "legend": {
           "calcs": [],
@@ -864,7 +832,7 @@
         "x": 18,
         "y": 16
       },
-      "id": 13,
+      "id": 12,
       "options": {
         "legend": {
           "calcs": [],
@@ -913,7 +881,7 @@
         "x": 0,
         "y": 24
       },
-      "id": 14,
+      "id": 13,
       "options": {
         "colorMode": "background",
         "graphMode": "none",
@@ -959,7 +927,7 @@
         "x": 6,
         "y": 24
       },
-      "id": 15,
+      "id": 14,
       "options": {
         "colorMode": "background",
         "graphMode": "none",
@@ -1031,11 +999,11 @@
       },
       "gridPos": {
         "h": 8,
-        "w": 6,
+        "w": 12,
         "x": 12,
         "y": 24
       },
-      "id": 16,
+      "id": 15,
       "options": {
         "legend": {
           "calcs": [],
@@ -1058,7 +1026,7 @@
           "legendFormat": "{{instance}} - Outgoing"
         }
       ],
-      "title": "Byte Rate",
+      "title": "Byte Rate (Per Broker)",
       "type": "timeseries"
     },
     {
@@ -1114,11 +1082,11 @@
       },
       "gridPos": {
         "h": 8,
-        "w": 6,
-        "x": 18,
-        "y": 24
+        "w": 12,
+        "x": 0,
+        "y": 32
       },
-      "id": 17,
+      "id": 16,
       "options": {
         "legend": {
           "calcs": [],
@@ -1145,7 +1113,37 @@
       "fieldConfig": {
         "defaults": {
           "color": {
-            "mode": "thresholds"
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "gradientMode": "none",
+            "hideFrom": {
+              "tooltip": false,
+              "viz": false,
+              "legend": false
+            },
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "never",
+            "spanNulls": true,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
           },
           "mappings": [],
           "thresholds": {
@@ -1154,10 +1152,6 @@
               {
                 "color": "green",
                 "value": null
-              },
-              {
-                "color": "red",
-                "value": 1
               }
             ]
           },
@@ -1167,35 +1161,68 @@
       },
       "gridPos": {
         "h": 8,
-        "w": 6,
-        "x": 0,
+        "w": 12,
+        "x": 12,
         "y": 32
       },
-      "id": 18,
+      "id": 17,
       "options": {
-        "colorMode": "background",
-        "graphMode": "none",
-        "justifyMode": "auto",
-        "orientation": "auto",
-        "textMode": "auto",
-        "wideLayout": true
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
       },
-      "pluginVersion": "8.0.0",
       "targets": [
         {
-          "expr": "sum(rate(kafka_server_BrokerTopicMetrics_MessagesInPerSec_total[5m]))",
-          "refId": "A"
+          "expr": "sum(rate(kafka_raft_Quorum_ElectedLeaderChanges_total[5m])) by (instance)",
+          "legendFormat": "{{instance}} - Leader Changes"
         }
       ],
-      "title": "Incoming Messages Rate",
-      "type": "stat"
+      "title": "KRaft Leader Election Rate",
+      "type": "timeseries"
     },
     {
       "datasource": "Managed_Prometheus_azuremonitor",
       "fieldConfig": {
         "defaults": {
           "color": {
-            "mode": "thresholds"
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "gradientMode": "none",
+            "hideFrom": {
+              "tooltip": false,
+              "viz": false,
+              "legend": false
+            },
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "never",
+            "spanNulls": true,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
           },
           "mappings": [],
           "thresholds": {
@@ -1213,41 +1240,281 @@
       },
       "gridPos": {
         "h": 8,
-        "w": 6,
-        "x": 6,
-        "y": 32
+        "w": 12,
+        "x": 0,
+        "y": 40
+      },
+      "id": 18,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "expr": "kafka_raft_Replica_LogEndOffset{job=\"kafka-broker\"}",
+          "legendFormat": "{{instance}}"
+        }
+      ],
+      "title": "KRaft Log End Offset",
+      "type": "timeseries"
+    },
+    {
+      "datasource": "Managed_Prometheus_azuremonitor",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "gradientMode": "none",
+            "hideFrom": {
+              "tooltip": false,
+              "viz": false,
+              "legend": false
+            },
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "never",
+            "spanNulls": true,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 40
       },
       "id": 19,
       "options": {
-        "colorMode": "background",
-        "graphMode": "none",
-        "justifyMode": "auto",
-        "orientation": "auto",
-        "textMode": "auto",
-        "wideLayout": true
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
       },
-      "pluginVersion": "8.0.0",
       "targets": [
         {
-          "expr": "sum(rate(kafka_server_ReplicaFetcherManager_ClientId_Replica_Leader_FetchesPerSec_total[5m]))",
-          "refId": "A"
+          "expr": "kafka_raft_Replica_LogHighWatermark{job=\"kafka-broker\"}",
+          "legendFormat": "{{instance}}"
         }
       ],
-      "title": "Total Produce Request Rate",
-      "type": "stat"
+      "title": "KRaft High Water Mark",
+      "type": "timeseries"
+    },
+    {
+      "datasource": "Managed_Prometheus_azuremonitor",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "gradientMode": "none",
+            "hideFrom": {
+              "tooltip": false,
+              "viz": false,
+              "legend": false
+            },
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "never",
+            "spanNulls": true,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "unit": "ms"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 48
+      },
+      "id": 20,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "expr": "kafka_server_ClientId_Request_KafkaRequestHandler_totalTimeMs{job=\"kafka-broker\"}",
+          "legendFormat": "{{instance}} - {{clientId}}"
+        }
+      ],
+      "title": "KRaft Quorum Request Latency",
+      "type": "timeseries"
+    },
+    {
+      "datasource": "Managed_Prometheus_azuremonitor",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "gradientMode": "none",
+            "hideFrom": {
+              "tooltip": false,
+              "viz": false,
+              "legend": false
+            },
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "never",
+            "spanNulls": true,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 48
+      },
+      "id": 21,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "expr": "sum(kafka_raft_Replica_UncommittedRecords{job=\"kafka-broker\"}) by (instance)",
+          "legendFormat": "{{instance}}"
+        }
+      ],
+      "title": "KRaft Uncommitted Records",
+      "type": "timeseries"
     }
   ],
   "refresh": "10s",
   "schemaVersion": 38,
   "style": "dark",
-  "tags": ["kafka", "monitoring", "cluster"],
+  "tags": ["kafka", "kraft", "monitoring", "cluster"],
   "templating": {
     "list": [
       {
         "current": {
           "selected": false,
-          "text": "kafka-cluster1",
-          "value": "kafka-cluster1"
+          "text": "kafka-cluster",
+          "value": "kafka-cluster"
         },
         "hide": 0,
         "includeAll": false,
@@ -1257,11 +1524,11 @@
         "options": [
           {
             "selected": true,
-            "text": "kafka-cluster1",
-            "value": "kafka-cluster1"
+            "text": "kafka-cluster",
+            "value": "kafka-cluster"
           }
         ],
-        "query": "kafka-cluster1",
+        "query": "kafka-cluster",
         "skipUrlSync": false,
         "sort": 0,
         "type": "custom"
@@ -1276,5 +1543,5 @@
   "timezone": "",
   "title": "Kafka Cluster - KRaft Mode",
   "uid": "kafka-cluster-kraft-monitoring",
-  "version": 3
+  "version": 1
 }
