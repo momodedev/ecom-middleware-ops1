@@ -175,7 +175,7 @@
     dest: "/etc/grafana/provisioning/dashboards/ansible/{{ item }}"
     mode: '0644'
   loop:
-    - kafka_kraft_dashboard.json
+    - kafka_kraft_dashboard_enhance.json
     - node_exporter_dashboard.json
   tags: grafana
 
