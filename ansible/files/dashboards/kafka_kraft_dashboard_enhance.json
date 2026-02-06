@@ -17,7 +17,7 @@
       },
       "targets": [
         {
-          "expr": "count(up{job=\"kafka-jmx\"} == 1)",
+          "expr": "count(kafka_server_BrokerTopicMetrics_BytesInPerSec_total{job=\"kafka-jmx\"}) or vector(0)",
           "refId": "A"
         }
       ],
@@ -43,7 +43,7 @@
     },
     {
       "id": 3,
-      "title": "Active Controllers",
+      "title": "KRaft Leaders",
       "type": "stat",
       "datasource": "Prometheus",
       "gridPos": {
@@ -54,7 +54,7 @@
       },
       "targets": [
         {
-          "expr": "sum(kafka_controller_KafkaController_ActiveControllerCount{job=\"kafka-jmx\"})",
+          "expr": "count(kafka_raft_Quorum_Leader{job=\"kafka-jmx\"} > 0) or vector(0)",
           "refId": "A"
         }
       ],
@@ -95,7 +95,7 @@
       },
       "targets": [
         {
-          "expr": "sum(kafka_server_ReplicaManager_UnderReplicatedPartitions{job=\"kafka-jmx\"})",
+          "expr": "sum(kafka_server_ReplicaManager_UnderReplicatedPartitions{job=\"kafka-jmx\"}) or vector(0)",
           "refId": "A"
         }
       ],
@@ -121,7 +121,7 @@
     },
     {
       "id": 5,
-      "title": "Offline Partitions Count",
+      "title": "KRaft Quorum Size",
       "type": "stat",
       "datasource": "Prometheus",
       "gridPos": {
@@ -132,7 +132,7 @@
       },
       "targets": [
         {
-          "expr": "sum(kafka_controller_KafkaController_OfflinePartitionsCount{job=\"kafka-jmx\"})",
+          "expr": "count(kafka_raft_Quorum_State{job=\"kafka-jmx\"}) or vector(0)",
           "refId": "A"
         }
       ],
