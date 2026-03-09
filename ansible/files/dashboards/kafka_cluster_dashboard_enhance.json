@@ -321,7 +321,7 @@
       },
       "targets": [
         {
-          "expr": "clamp_max(clamp_min(max by (instance) (kafka_server_KafkaRequestHandlerPool_RequestHandlerAvgIdlePercent{job=\"kafka-jmx\"} or {job=\"kafka-jmx\",name=\"RequestHandlerAvgIdlePercent\"}), 1), 0)",
+          "expr": "clamp_max(clamp_min(((max by (instance) (kafka_server_KafkaRequestHandlerPool_RequestHandlerAvgIdlePercent{job=\"kafka-jmx\"} or {job=\"kafka-jmx\",name=\"RequestHandlerAvgIdlePercent\"} or {job=\"kafka-jmx\",__name__=~\"kafka_server_.*requesthandleravgidlepercent.*\"}) > bool 1) * (max by (instance) (kafka_server_KafkaRequestHandlerPool_RequestHandlerAvgIdlePercent{job=\"kafka-jmx\"} or {job=\"kafka-jmx\",name=\"RequestHandlerAvgIdlePercent\"} or {job=\"kafka-jmx\",__name__=~\"kafka_server_.*requesthandleravgidlepercent.*\"}) / 100) + (max by (instance) (kafka_server_KafkaRequestHandlerPool_RequestHandlerAvgIdlePercent{job=\"kafka-jmx\"} or {job=\"kafka-jmx\",name=\"RequestHandlerAvgIdlePercent\"} or {job=\"kafka-jmx\",__name__=~\"kafka_server_.*requesthandleravgidlepercent.*\"}) <= bool 1) * max by (instance) (kafka_server_KafkaRequestHandlerPool_RequestHandlerAvgIdlePercent{job=\"kafka-jmx\"} or {job=\"kafka-jmx\",name=\"RequestHandlerAvgIdlePercent\"} or {job=\"kafka-jmx\",__name__=~\"kafka_server_.*requesthandleravgidlepercent.*\"})), 1), 0)",
           "legendFormat": "{{instance}}"
         }
       ],
