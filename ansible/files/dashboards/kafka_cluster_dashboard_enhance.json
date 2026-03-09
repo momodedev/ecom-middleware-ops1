@@ -480,7 +480,7 @@
       },
       "targets": [
         {
-          "expr": "clamp_max(clamp_min(max by (instance) (rate(java_lang_GarbageCollector_CollectionTime{job=~\"$jmx_job\",instance=~\"$instance\"}[$__rate_interval]) or rate({job=~\"$jmx_job\",instance=~\"$instance\",__name__=~\"java_lang_.*collectiontime.*\"}[$__rate_interval])) / 1000, 1), 0)",
+          "expr": "clamp_max(clamp_min(max by (instance) (rate(java_lang_GarbageCollector_CollectionTime{job=~\"$jmx_job\",instance=~\"$instance\"}[$__rate_interval]) or rate({job=~\"$jmx_job\",instance=~\"$instance\",__name__=~\"java_lang_.*garbagecollector.*collectiontime.*\"}[$__rate_interval]) or deriv({job=~\"$jmx_job\",instance=~\"$instance\",__name__=~\"java_lang_.*garbagecollector.*collectiontime.*\"}[$__rate_interval])) / 1000, 1), 0)",
           "legendFormat": "{{instance}}",
           "refId": "A"
         }
