@@ -79,6 +79,7 @@
     prometheus_jmx_output_path: "/etc/prometheus/file_sd/kafka_jmx_targets.json"
     # Ensure port is defined for the template rendered on localhost
     kafka_exporter_port: 9308
+    kafka_jmx_exporter_port: 7071
   tasks:
     - name: Ensure Prometheus target directory exists
       file:
