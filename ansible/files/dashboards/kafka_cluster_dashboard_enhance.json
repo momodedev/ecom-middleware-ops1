@@ -321,13 +321,16 @@
       },
       "targets": [
         {
-          "expr": "max by (instance) (kafka_server_KafkaRequestHandlerPool_RequestHandlerAvgIdlePercent{job=\"kafka-jmx\"} or {job=\"kafka-jmx\",name=\"RequestHandlerAvgIdlePercent\"} or {job=\"kafka-jmx\",__name__=~\"kafka_server_.*requesthandleravgidlepercent.*\"})",
+          "expr": "clamp_max(clamp_min(max by (instance) (kafka_server_KafkaRequestHandlerPool_RequestHandlerAvgIdlePercent{job=\"kafka-jmx\"} or {job=\"kafka-jmx\",name=\"RequestHandlerAvgIdlePercent\"}), 1), 0)",
           "legendFormat": "{{instance}}"
         }
       ],
       "fieldConfig": {
         "defaults": {
-          "unit": "percentunit"
+          "unit": "percentunit",
+          "min": 0,
+          "max": 1,
+          "decimals": 2
         }
       }
     }
