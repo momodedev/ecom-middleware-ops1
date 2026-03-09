@@ -781,10 +781,11 @@
   "schemaVersion": 39,
   "style": "dark",
   "tags": [
-    "node-exporter",
-    "kafka",
     "host",
-    "monitoring"
+    "kafka",
+    "kraft",
+    "monitoring",
+    "node-exporter"
   ],
   "templating": {
     "list": [
