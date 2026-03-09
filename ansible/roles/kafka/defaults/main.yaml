@@ -18,6 +18,14 @@ kafka_external_port: 9094
 kafka_version: "3.9.1"
 kafka_scala_version: "2.13"
 
+# JMX Exporter (Prometheus Java agent)
+jmx_exporter_version: "0.20.0"
+jmx_exporter_jar_url: "https://repo1.maven.org/maven2/io/prometheus/jmx/jmx_prometheus_javaagent/{{ jmx_exporter_version }}/jmx_prometheus_javaagent-{{ jmx_exporter_version }}.jar"
+kafka_jmx_exporter_dir: "/opt/jmx_exporter"
+kafka_jmx_exporter_jar: "{{ kafka_jmx_exporter_dir }}/jmx_prometheus_javaagent.jar"
+kafka_jmx_exporter_config: "{{ kafka_jmx_exporter_dir }}/config.yml"
+kafka_jmx_exporter_port: 7071
+
 # JVM Heap Size
 kafka_heap_size: "-Xmx2G -Xms2G"
 

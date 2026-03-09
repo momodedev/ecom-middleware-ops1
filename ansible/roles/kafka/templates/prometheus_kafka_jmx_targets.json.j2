@@ -5,7 +5,7 @@
     },
     "targets": [
     {% for host in groups['kafka'] | sort %}
-      "{{ hostvars[host]['private_ip'] }}:9999"{% if not loop.last %},{% endif %}
+      "{{ hostvars[host]['private_ip'] }}:{{ kafka_jmx_exporter_port }}"{% if not loop.last %},{% endif %}
     {% endfor %}
     ]
   }

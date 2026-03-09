@@ -476,11 +476,40 @@
   delay: 5
   until: kafka_format_result is succeeded
 
+- name: Ensure JMX exporter directory exists
+  file:
+    path: "{{ kafka_jmx_exporter_dir }}"
+    state: directory
+    owner: kafka
+    group: kafka
+    mode: "0755"
+
+- name: Download JMX exporter javaagent
+  get_url:
+    url: "{{ jmx_exporter_jar_url }}"
+    dest: "{{ kafka_jmx_exporter_jar }}"
+    mode: "0755"
+    timeout: 120
+  register: jmx_exporter_jar
+  retries: 3
+  delay: 10
+  until: jmx_exporter_jar is succeeded
+
+- name: Deploy JMX exporter config
+  template:
+    src: jmx_exporter_config.yml.j2
+    dest: "{{ kafka_jmx_exporter_config }}"
+    owner: kafka
+    group: kafka
+    mode: "0644"
+  register: jmx_exporter_config
+
 - name: Create Kafka systemd unit
   template:
     src: kafka.service.j2
     dest: /etc/systemd/system/kafka.service
     mode: "0644"
+  register: kafka_service_unit
 
 - name: Reload systemd and start Kafka broker
   systemd:
@@ -495,7 +524,7 @@
     state: restarted
     enabled: true
     daemon_reload: true
-  when: server_properties is changed
+  when: server_properties is changed or kafka_service_unit is changed or jmx_exporter_jar is changed or jmx_exporter_config is changed
 
 - name: Wait for Kafka client listener
   wait_for:
@@ -514,6 +543,15 @@
     timeout: 60
     state: started
     msg: "Kafka controller listener not available on {{ inventory_hostname }}"
+
+- name: Wait for JMX exporter endpoint
+  wait_for:
+    host: "{{ kafka_advertised_host }}"
+    port: "{{ kafka_jmx_exporter_port }}"
+    delay: 5
+    timeout: 60
+    state: started
+    msg: "Kafka JMX exporter not reachable on {{ inventory_hostname }}"
 
 - name: Unpack Kafka exporter
   unarchive:
