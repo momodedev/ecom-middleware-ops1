@@ -200,9 +200,54 @@
     - not kafka_binary_check.stat.exists
   register: kafka_cleanup
 
-- name: Download and unpack kafka
+- name: Download Kafka archive from primary URL
+  get_url:
+    url: "{{ kafka_primary_url }}"
+    dest: "{{ kafka_archive_path }}"
+    mode: "0644"
+    timeout: "{{ kafka_download_timeout }}"
+    force: yes
+  when: not kafka_binary_check.stat.exists or kafka_cleanup is changed
+  register: kafka_download_primary
+  failed_when: false
+
+- name: Check Kafka archive size after primary download
+  stat:
+    path: "{{ kafka_archive_path }}"
+  when: not kafka_binary_check.stat.exists or kafka_cleanup is changed
+  register: kafka_archive_stat_primary
+
+- name: Download Kafka archive from fallback URL when primary is invalid
+  get_url:
+    url: "{{ kafka_fallback_url }}"
+    dest: "{{ kafka_archive_path }}"
+    mode: "0644"
+    timeout: "{{ kafka_download_timeout }}"
+    force: yes
+  when:
+    - not kafka_binary_check.stat.exists or kafka_cleanup is changed
+    - (kafka_archive_stat_primary.stat.exists | default(false)) == false or (kafka_archive_stat_primary.stat.size | default(0) | int) < (kafka_min_archive_size_bytes | int)
+  register: kafka_download_fallback
+  failed_when: false
+
+- name: Check final Kafka archive size
+  stat:
+    path: "{{ kafka_archive_path }}"
+  when: not kafka_binary_check.stat.exists or kafka_cleanup is changed
+  register: kafka_archive_stat_final
+
+- name: Fail when Kafka archive download is invalid
+  fail:
+    msg: >-
+      Kafka archive download failed or is too small (size={{ kafka_archive_stat_final.stat.size | default(0) }} bytes).
+      Tried primary={{ kafka_primary_url }} and fallback={{ kafka_fallback_url }}.
+  when:
+    - not kafka_binary_check.stat.exists or kafka_cleanup is changed
+    - (kafka_archive_stat_final.stat.exists | default(false)) == false or (kafka_archive_stat_final.stat.size | default(0) | int) < (kafka_min_archive_size_bytes | int)
+
+- name: Unpack kafka archive
   unarchive:
-    src: "{{ kafka_url }}"
+    src: "{{ kafka_archive_path }}"
     dest: "{{ kafka_home }}"
     owner: kafka
     group: kafka
@@ -210,9 +255,6 @@
     remote_src: yes
   when: not kafka_binary_check.stat.exists or kafka_cleanup is changed
   register: kafka_download
-  retries: 5
-  delay: 15
-  until: kafka_download is succeeded
   
 - name: Find kafka folder after extraction
   find: 

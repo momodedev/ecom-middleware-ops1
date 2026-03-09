@@ -16,6 +16,7 @@ kafka_controller_port: 9093
 kafka_client_port: 9092
 kafka_external_port: 9094
 kafka_version: "3.9.1"
+kafka_scala_version: "2.13"
 
 # JVM Heap Size
 kafka_heap_size: "-Xmx2G -Xms2G"
@@ -33,8 +34,13 @@ node_exporter_download_url: "https://github.com/prometheus/node_exporter/release
 # Prometheus Configuration
 prometheus_sd_output_path: "inventory/prometheus/kafka_targets.json"
 
-# Kafka Download URL (for setenv role)
-kafka_url: "https://downloads.apache.org/kafka/{{ kafka_version }}/kafka_2.13-{{ kafka_version }}.tgz"
+# Kafka Download URLs and archive validation
+kafka_primary_url: "https://downloads.apache.org/kafka/{{ kafka_version }}/kafka_{{ kafka_scala_version }}-{{ kafka_version }}.tgz"
+kafka_fallback_url: "https://archive.apache.org/dist/kafka/{{ kafka_version }}/kafka_{{ kafka_scala_version }}-{{ kafka_version }}.tgz"
+kafka_url: "{{ kafka_primary_url }}"
+kafka_archive_path: "/tmp/kafka_{{ kafka_scala_version }}-{{ kafka_version }}.tgz"
+kafka_download_timeout: 300
+kafka_min_archive_size_bytes: 1048576
 
 # Controller Quorum (dynamically generated in tasks, not hardcoded)
 kafka_controller_quorum_voters: ""  # computed by playbooks
