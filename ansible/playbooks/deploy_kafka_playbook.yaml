@@ -19,6 +19,7 @@
     - name: Test SSH connection with retries
       command: echo "SSH OK"
       register: ssh_test
+      changed_when: false
       retries: 5
       delay: 10
       until: ssh_test is succeeded

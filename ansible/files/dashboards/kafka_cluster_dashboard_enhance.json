@@ -54,7 +54,7 @@
       },
       "targets": [
         {
-          "expr": "sum(kafka_controller_KafkaController_ActiveControllerCount{job=\"kafka-jmx\"}) or sum({job=\"kafka-jmx\",__name__=~\"kafka_controller_.*activecontrollercount.*\"})",
+          "expr": "sum(kafka_controller_KafkaController_ActiveControllerCount{job=\"kafka-jmx\"}) or sum({job=\"kafka-jmx\",name=\"ActiveControllerCount\"}) or sum({job=\"kafka-jmx\",__name__=~\"kafka_controller_.*activecontrollercount.*\"}) or vector(0)",
           "refId": "A"
         }
       ],
@@ -95,7 +95,7 @@
       },
       "targets": [
         {
-          "expr": "sum(kafka_server_ReplicaManager_UnderReplicatedPartitions{job=\"kafka-jmx\"}) or sum({job=\"kafka-jmx\",__name__=~\"kafka_server_.*underreplicatedpartitions.*\"})",
+          "expr": "sum(kafka_server_ReplicaManager_UnderReplicatedPartitions{job=\"kafka-jmx\"}) or sum({job=\"kafka-jmx\",name=\"UnderReplicatedPartitions\"}) or sum({job=\"kafka-jmx\",__name__=~\"kafka_server_.*underreplicatedpartitions.*\"}) or vector(0)",
           "refId": "A"
         }
       ],
@@ -132,7 +132,7 @@
       },
       "targets": [
         {
-          "expr": "sum(kafka_controller_KafkaController_OfflinePartitionsCount{job=\"kafka-jmx\"}) or sum({job=\"kafka-jmx\",__name__=~\"kafka_controller_.*offlinepartitionscount.*\"})",
+          "expr": "sum(kafka_controller_KafkaController_OfflinePartitionsCount{job=\"kafka-jmx\"}) or sum({job=\"kafka-jmx\",name=\"OfflinePartitionsCount\"}) or sum({job=\"kafka-jmx\",__name__=~\"kafka_controller_.*offlinepartitionscount.*\"}) or vector(0)",
           "refId": "A"
         }
       ],
@@ -180,11 +180,11 @@
       },
       "targets": [
         {
-          "expr": "sum(rate(kafka_server_BrokerTopicMetrics_BytesInPerSec_total{job=\"kafka-jmx\"}[5m])) or sum({job=\"kafka-jmx\",__name__=~\"kafka_server_.*bytesinpersec.*\"})",
+          "expr": "sum(rate(kafka_server_BrokerTopicMetrics_BytesInPerSec_total{job=\"kafka-jmx\"}[5m])) or sum(rate({job=\"kafka-jmx\",name=\"BytesInPerSec\",__name__=~\".*_count\"}[5m])) or sum({job=\"kafka-jmx\",name=\"BytesInPerSec\",__name__=~\".*_(oneminuterate|fiveminuterate|meanrate|value)\"}) or vector(0)",
           "legendFormat": "Inbound"
         },
         {
-          "expr": "sum(rate(kafka_server_BrokerTopicMetrics_BytesOutPerSec_total{job=\"kafka-jmx\"}[5m])) or sum({job=\"kafka-jmx\",__name__=~\"kafka_server_.*bytesoutpersec.*\"})",
+          "expr": "sum(rate(kafka_server_BrokerTopicMetrics_BytesOutPerSec_total{job=\"kafka-jmx\"}[5m])) or sum(rate({job=\"kafka-jmx\",name=\"BytesOutPerSec\",__name__=~\".*_count\"}[5m])) or sum({job=\"kafka-jmx\",name=\"BytesOutPerSec\",__name__=~\".*_(oneminuterate|fiveminuterate|meanrate|value)\"}) or vector(0)",
           "legendFormat": "Outbound"
         }
       ],
@@ -207,7 +207,7 @@
       },
       "targets": [
         {
-          "expr": "kafka_network_RequestChannel_RequestQueueSize{job=\"kafka-jmx\"} or {job=\"kafka-jmx\",__name__=~\"kafka_network_.*requestqueuesize.*\"}",
+          "expr": "kafka_network_RequestChannel_RequestQueueSize{job=\"kafka-jmx\"} or {job=\"kafka-jmx\",name=\"RequestQueueSize\"} or {job=\"kafka-jmx\",__name__=~\"kafka_network_.*requestqueuesize.*\"}",
           "legendFormat": "{{instance}}"
         }
       ],
@@ -241,7 +241,7 @@
       },
       "targets": [
         {
-          "expr": "sum by (consumergroup) (kafka_consumergroup_lag{job=\"kafka-exporter\"})",
+          "expr": "sum by (consumergroup) (kafka_consumergroup_lag{job=~\"kafka-exporter|kafka_exporter\"}) or vector(0)",
           "legendFormat": "{{consumergroup}}"
         }
       ],
@@ -321,7 +321,7 @@
       },
       "targets": [
         {
-          "expr": "kafka_server_KafkaRequestHandlerPool_RequestHandlerAvgIdlePercent{job=\"kafka-jmx\"} or {job=\"kafka-jmx\",__name__=~\"kafka_server_.*requesthandleravgidlepercent.*\"}",
+          "expr": "kafka_server_KafkaRequestHandlerPool_RequestHandlerAvgIdlePercent{job=\"kafka-jmx\"} or {job=\"kafka-jmx\",name=\"RequestHandlerAvgIdlePercent\"} or {job=\"kafka-jmx\",__name__=~\"kafka_server_.*requesthandleravgidlepercent.*\"}",
           "legendFormat": "{{instance}}"
         }
       ],

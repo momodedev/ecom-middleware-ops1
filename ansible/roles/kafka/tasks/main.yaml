@@ -4,6 +4,7 @@
 - name: Wait for cloud-init to complete
   shell: "cloud-init status --wait"
   register: cloud_init_wait
+  changed_when: false
   retries: 60
   delay: 5
   until: cloud_init_wait.rc == 0
@@ -442,6 +443,7 @@
 - name: Pre-format diagnostic - List kafka workspace contents
   shell: "ls -la {{ kafka_workspace }}/"
   register: kafka_ws_list
+  changed_when: false
   tags: always
   
 - name: Pre-format diagnostic - Show kafka workspace contents
@@ -472,6 +474,7 @@
   become_user: kafka
   command: "{{ kafka_workspace }}/bin/kafka-storage.sh format --config {{ kafka_workspace }}/config/server.properties --cluster-id {{ hostvars['localhost']['kafka_cluster_id'] }} --ignore-formatted"
   register: kafka_format_result
+  changed_when: false
   retries: 2
   delay: 5
   until: kafka_format_result is succeeded
