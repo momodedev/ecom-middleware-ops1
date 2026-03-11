@@ -19,7 +19,12 @@ resource "azurerm_public_ip" "kafka_brokers" {
   }
 
   lifecycle {
-    ignore_changes = [tags]
+    ignore_changes = [
+      tags,
+      # Azure can inject ip_tags metadata (for example FirstPartyUsage), which can
+      # otherwise trigger unnecessary ForceNew replacement for Public IP resources.
+      ip_tags
+    ]
     # Prevent accidental deletion of public IPs
     prevent_destroy = false
   }
@@ -48,9 +53,7 @@ resource "azurerm_network_interface" "kafka_brokers" {
 
   lifecycle {
     ignore_changes = [
-      tags,
-      # Prevent Terraform from detaching/reattaching public IPs during scale operations
-      ip_configuration[0].public_ip_address_id
+      tags
     ]
   }
 }
