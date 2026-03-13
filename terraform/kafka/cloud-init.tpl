@@ -25,8 +25,8 @@ packages:
   - nc
   - tar
   - gzip
-  - java-17-openjdk
-  - java-17-openjdk-devel
+  - java-11-openjdk
+  - java-11-openjdk-devel
 
 runcmd:
   # Update package cache

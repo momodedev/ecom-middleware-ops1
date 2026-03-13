@@ -98,7 +98,7 @@ if [[ $TARGET_COUNT -ge $CURRENT_COUNT ]]; then
 fi
 
 if [[ $TARGET_COUNT -lt 3 ]]; then
-  log_error "Target count must be at least 3 for Kafka KRaft quorum"
+  log_error "Target count must be at least 3 to preserve healthy replication defaults"
   exit 1
 fi
 

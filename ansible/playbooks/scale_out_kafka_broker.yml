@@ -195,18 +195,18 @@
       become_user: kafka
       ignore_errors: yes
 
-    - name: Verify broker in cluster metadata
+    - name: Verify broker registration in ZooKeeper
       command: |
-        /opt/kafka/bin/kafka-metadata-quorum.sh --bootstrap-server localhost:9092 describe --status
+        /opt/kafka/bin/zookeeper-shell.sh localhost:2181 ls /brokers/ids
       become: yes
       become_user: kafka
       ignore_errors: yes
-      register: cluster_metadata
+      register: cluster_registration
 
-    - name: Display cluster metadata
+    - name: Display cluster registration
       debug:
-        var: cluster_metadata.stdout_lines
-      when: cluster_metadata.rc == 0
+        var: cluster_registration.stdout_lines
+      when: cluster_registration.rc == 0
 
 - name: Validate ISR and Replication
   hosts: localhost

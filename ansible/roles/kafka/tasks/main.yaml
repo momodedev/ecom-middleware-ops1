@@ -16,7 +16,7 @@
 - name: Install required packages
   package:
     name:
-      - java-17-openjdk
+      - java-11-openjdk
       - net-tools
       - tar
     state: present
@@ -45,7 +45,7 @@
 
 - name: Check if Kafka is already installed
   stat:
-    path: "{{ kafka_workspace }}/bin/kafka-storage.sh"
+    path: "{{ kafka_workspace }}/bin/kafka-server-start.sh"
   register: kafka_binary_check
 
 # ==================== DATA DISK SETUP (Moved from cloud-init) ====================
@@ -280,7 +280,7 @@
 
 - name: Verify Kafka installation success
   stat:
-    path: "{{ kafka_workspace }}/bin/kafka-storage.sh"
+    path: "{{ kafka_workspace }}/bin/kafka-server-start.sh"
   register: kafka_verify
   failed_when: not kafka_verify.stat.exists
   retries: 3
@@ -311,18 +311,13 @@
     group: kafka
     mode: "0755"
 
-- name: Check for existing Kafka metadata
-  stat:
-    path: "{{ kafka_data_dir }}/meta.properties"
-  register: kafka_meta_properties
-  run_once: true
-
 - name: Assign deterministic node id
   set_fact:
     kafka_node_id: "{{ groups['kafka'].index(inventory_hostname) + 1 }}"
-  run_once: true
-  delegate_to: localhost
-  delegate_facts: true
+  
+- name: Set broker id from node id
+  set_fact:
+    kafka_broker_id: "{{ kafka_node_id }}"
 
 
 - name: Derive advertised host for Kafka
@@ -372,10 +367,9 @@
 - name: DEBUG - Show all kafka_ variables
   debug:
     msg:
-      - "kafka_process_roles: {{ kafka_process_roles | default('UNDEFINED') }}"
-      - "kafka_node_id: {{ kafka_node_id | default('UNDEFINED') }}"
-      - "kafka_controller_port: {{ kafka_controller_port | default('UNDEFINED') }}"
+      - "kafka_broker_id: {{ kafka_broker_id | default('UNDEFINED') }}"
       - "kafka_client_port: {{ kafka_client_port | default('UNDEFINED') }}"
+      - "kafka_zookeeper_port: {{ kafka_zookeeper_port | default('UNDEFINED') }}"
       - "kafka_advertised_host: {{ kafka_advertised_host | default('UNDEFINED') }}"
       - "kafka_log_dirs: {{ kafka_log_dirs | default('UNDEFINED') }}"
 
@@ -407,39 +401,6 @@
     advertised_check.stdout is search('://:[0-9]+') or
     advertised_check.stdout == ''
 
-- name: Read existing cluster id when present
-  slurp:
-    src: "{{ kafka_data_dir }}/meta.properties"
-  when: kafka_meta_properties.stat.exists
-  register: kafka_meta_contents
-  run_once: true
-
-- name: Extract existing cluster id
-  when: kafka_meta_properties.stat.exists
-  set_fact:
-    kafka_cluster_id: "{{ (kafka_meta_contents.content | b64decode).split('\n') | select('match', '^cluster.id=') | list | first | regex_replace('^cluster.id=', '') }}"
-  run_once: true
-  delegate_to: localhost
-  delegate_facts: true
-
-- name: Generate Kafka cluster UUID
-  when: not kafka_meta_properties.stat.exists
-  become_user: kafka
-  command: "{{ kafka_workspace }}/bin/kafka-storage.sh random-uuid"
-  register: kafka_cluster_uuid
-  run_once: true
-  retries: 3
-  delay: 5
-  until: kafka_cluster_uuid is succeeded
-
-- name: Share generated cluster UUID
-  when: not kafka_meta_properties.stat.exists
-  set_fact:
-    kafka_cluster_id: "{{ kafka_cluster_uuid.stdout | trim }}"
-  run_once: true
-  delegate_to: localhost
-  delegate_facts: true
-
 - name: Pre-format diagnostic - List kafka workspace contents
   shell: "ls -la {{ kafka_workspace }}/"
   register: kafka_ws_list
@@ -451,33 +412,53 @@
     var: kafka_ws_list.stdout_lines
   tags: always
 
-- name: Verify Kafka binaries exist before formatting
-  stat:
-    path: "{{ kafka_workspace }}/bin/kafka-storage.sh"
-  register: kafka_storage_binary
-  failed_when: not kafka_storage_binary.stat.exists
-  
-- name: Verify Kafka config exists before formatting
-  stat:
-    path: "{{ kafka_workspace }}/config/server.properties"
-  register: kafka_config_file
-  failed_when: not kafka_config_file.stat.exists
-
-- name: Fix lost+found permissions if present
+- name: Ensure ZooKeeper data directory exists
   file:
-    path: "{{ kafka_data_dir }}/lost+found"
-    state: absent
-  ignore_errors: yes
+    path: "{{ kafka_zookeeper_data_dir }}"
+    state: directory
+    owner: kafka
+    group: kafka
+    mode: "0755"
+
+- name: Write ZooKeeper myid
+  copy:
+    dest: "{{ kafka_zookeeper_data_dir }}/myid"
+    content: "{{ kafka_node_id }}\n"
+    owner: kafka
+    group: kafka
+    mode: "0644"
+
+- name: Configure ZooKeeper properties
+  template:
+    src: zookeeper.properties.j2
+    dest: "{{ kafka_workspace }}/config/zookeeper.properties"
+    owner: kafka
+    group: kafka
+    mode: "0644"
   become: yes
 
-- name: Format Kafka storage directories
-  become_user: kafka
-  command: "{{ kafka_workspace }}/bin/kafka-storage.sh format --config {{ kafka_workspace }}/config/server.properties --cluster-id {{ hostvars['localhost']['kafka_cluster_id'] }} --ignore-formatted"
-  register: kafka_format_result
-  changed_when: false
-  retries: 2
-  delay: 5
-  until: kafka_format_result is succeeded
+- name: Create ZooKeeper systemd unit
+  template:
+    src: zookeeper.service.j2
+    dest: /etc/systemd/system/zookeeper.service
+    mode: "0644"
+  register: zookeeper_service_unit
+
+- name: Reload systemd and start ZooKeeper
+  systemd:
+    name: zookeeper
+    state: started
+    enabled: true
+    daemon_reload: true
+
+- name: Wait for ZooKeeper listener
+  wait_for:
+    host: "{{ kafka_advertised_host }}"
+    port: "{{ kafka_zookeeper_port }}"
+    delay: 5
+    timeout: 60
+    state: started
+    msg: "ZooKeeper listener not available on {{ inventory_hostname }}"
 
 - name: Ensure JMX exporter directory exists
   file:
@@ -527,7 +508,7 @@
     state: restarted
     enabled: true
     daemon_reload: true
-  when: server_properties is changed or kafka_service_unit is changed or jmx_exporter_jar is changed or jmx_exporter_config is changed
+  when: server_properties is changed or kafka_service_unit is changed or jmx_exporter_jar is changed or jmx_exporter_config is changed or zookeeper_service_unit is changed
 
 - name: Wait for Kafka client listener
   wait_for:
@@ -537,15 +518,6 @@
     timeout: 60
     state: started
     msg: "Kafka client listener not available on {{ inventory_hostname }}"
-
-- name: Wait for Kafka controller listener
-  wait_for:
-    host: "{{ kafka_advertised_host }}"
-    port: "{{ kafka_controller_port }}"
-    delay: 5
-    timeout: 60
-    state: started
-    msg: "Kafka controller listener not available on {{ inventory_hostname }}"
 
 - name: Wait for JMX exporter endpoint
   wait_for:

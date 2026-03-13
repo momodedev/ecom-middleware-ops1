@@ -222,38 +222,29 @@ else
     fi
 fi
 
-# 4. Check KRaft controller connectivity
+# 4. Check ZooKeeper connectivity
 echo ""
-echo "[4/8] Checking KRaft controller quorum..."
-if [ -x "$KAFKA_BIN/kafka-metadata.sh" ]; then
-    METADATA_DIR="/var/kafka-logs/__cluster_metadata-0"
-    if [ -d "$METADATA_DIR" ]; then
-        LATEST_LOG=$(ls -t "$METADATA_DIR"/*.log 2>/dev/null | head -1)
-        if [ -n "$LATEST_LOG" ]; then
-            # Try to read metadata (this validates KRaft mode)
-            if $KAFKA_BIN/kafka-metadata.sh --snapshot "$LATEST_LOG" --print 2>&1 | grep -q "epoch"; then
-                check_pass "KRaft metadata log is valid"
-            else
-                check_warn "KRaft metadata log exists but unable to parse"
-            fi
-        else
-            check_warn "No KRaft metadata logs found yet (new broker or waiting for sync)"
-        fi
+echo "[4/8] Checking ZooKeeper health..."
+if [ -x "$KAFKA_BIN/zookeeper-shell.sh" ]; then
+    ZK_OUTPUT=$($KAFKA_BIN/zookeeper-shell.sh localhost:2181 ls /brokers/ids 2>&1)
+    ZK_RC=$?
+    if [[ $ZK_RC -eq 0 ]]; then
+        check_pass "ZooKeeper reachable and broker IDs query succeeded"
+        echo "$ZK_OUTPUT" | tail -5
     else
-        check_warn "KRaft metadata directory not found (run this check on a Kafka broker node)"
+        check_warn "ZooKeeper check failed (rc=$ZK_RC): $(echo "$ZK_OUTPUT" | tail -2)"
     fi
 else
-    # Try remote KRaft quorum check using kafka-metadata-quorum.sh
     if [[ "$BROKER_HOST" != "localhost" ]]; then
-        QUORUM_OUTPUT=$(exec_cmd "$KAFKA_HOME/bin/kafka-metadata-quorum.sh --bootstrap-server localhost:9092 describe --status 2>&1" true)
-        if [[ $? -eq 0 && -n "$QUORUM_OUTPUT" ]] && echo "$QUORUM_OUTPUT" | grep -q "CurrentVoters"; then
-            check_pass "KRaft quorum status retrieved (via remote)"
-            echo "$QUORUM_OUTPUT" | head -5
+        ZK_OUTPUT=$(exec_cmd "$KAFKA_HOME/bin/zookeeper-shell.sh localhost:2181 ls /brokers/ids 2>&1" true)
+        if [[ $? -eq 0 ]]; then
+            check_pass "ZooKeeper reachable (via remote)"
+            echo "$ZK_OUTPUT" | tail -5
         else
-            check_warn "kafka-metadata.sh not available locally or remotely"
+            check_warn "zookeeper-shell.sh not available locally or remotely"
         fi
     else
-        check_warn "kafka-metadata.sh not found at $KAFKA_BIN (install Kafka tools or run on broker)"
+        check_warn "zookeeper-shell.sh not found at $KAFKA_BIN"
     fi
 fi
 
