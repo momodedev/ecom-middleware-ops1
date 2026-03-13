@@ -15,6 +15,8 @@ fi
 RESOURCE_GROUP="$1"
 ADMIN_USER="$2"
 SSH_KEY="${SSH_KEY:-$HOME/.ssh/id_rsa}"
+SSH_RETRY_COUNT="${SSH_RETRY_COUNT:-18}"
+SSH_RETRY_SLEEP_SECONDS="${SSH_RETRY_SLEEP_SECONDS:-15}"
 
 echo "=========================================="
 echo "VM Readiness Validation"
@@ -22,6 +24,8 @@ echo "=========================================="
 echo "Resource Group: $RESOURCE_GROUP"
 echo "Admin User: $ADMIN_USER"
 echo "SSH Key: $SSH_KEY"
+echo "SSH Retries: $SSH_RETRY_COUNT"
+echo "Retry Interval: ${SSH_RETRY_SLEEP_SECONDS}s"
 echo ""
 
 # Check if logged in to Azure
@@ -115,24 +119,49 @@ for vm_name in $vm_names; do
 done
 echo ""
 
-# Test SSH connectivity to each VM
-echo "[5/5] Testing SSH connectivity (may take a few minutes)..."
+# Test SSH connectivity and verify Rocky Linux update level
+echo "[5/5] Testing SSH connectivity and OS version (may take several minutes after reboot)..."
 ssh_failed=0
 for vm_name in $vm_names; do
     ip="${vm_ips[$vm_name]}"
     
-    echo -n "Testing $vm_name ($ip)... "
-    
-    # Try SSH with timeout
-    if timeout 30 ssh -o StrictHostKeyChecking=no \
-                       -o ConnectTimeout=10 \
-                       -o BatchMode=yes \
-                       -i "$SSH_KEY" \
-                       "${ADMIN_USER}@${ip}" \
-                       "echo 'SSH OK'" &>/dev/null; then
-        echo "✓ Connected"
+    echo "Testing $vm_name ($ip)..."
+
+    connected=0
+    for attempt in $(seq 1 "$SSH_RETRY_COUNT"); do
+        if timeout 45 ssh -o StrictHostKeyChecking=no \
+                          -o ConnectTimeout=10 \
+                          -o BatchMode=yes \
+                          -i "$SSH_KEY" \
+                          "${ADMIN_USER}@${ip}" \
+                          "echo 'SSH OK'" &>/dev/null; then
+            connected=1
+            echo "  ✓ SSH connected on attempt $attempt/$SSH_RETRY_COUNT"
+            break
+        fi
+        echo "  ...attempt $attempt/$SSH_RETRY_COUNT failed, waiting ${SSH_RETRY_SLEEP_SECONDS}s"
+        sleep "$SSH_RETRY_SLEEP_SECONDS"
+    done
+
+    if [[ $connected -ne 1 ]]; then
+        echo "  ✗ SSH failed after $SSH_RETRY_COUNT attempts"
+        ((ssh_failed++))
+        continue
+    fi
+
+    # Verify cloud-init completed and Rocky Linux is 9.7 after system update
+    if timeout 60 ssh -o StrictHostKeyChecking=no \
+                      -o ConnectTimeout=10 \
+                      -o BatchMode=yes \
+                      -i "$SSH_KEY" \
+                      "${ADMIN_USER}@${ip}" \
+                      "sudo cloud-init status --wait >/dev/null && \
+                       [[ -f /var/log/kafka-bootstrap-complete.log ]] && \
+                       source /etc/os-release && \
+                       [[ \"\$VERSION_ID\" == \"9.7\" ]]" &>/dev/null; then
+        echo "  ✓ Cloud-init complete and Rocky Linux VERSION_ID=9.7"
     else
-        echo "✗ Failed"
+        echo "  ✗ Validation failed: cloud-init incomplete or Rocky Linux is not 9.7"
         ((ssh_failed++))
     fi
 done
@@ -148,10 +177,11 @@ else
     echo "=========================================="
     echo ""
     echo "Troubleshooting steps:"
-    echo "1. Wait 2-3 minutes for VMs to finish cloud-init"
+    echo "1. Wait for reboot/update cycle to finish, then retry"
     echo "2. Check NSG rules allow SSH from control node"
     echo "3. Verify VNet peering is active"
-    echo "4. Check if SSH key is authorized: cat ~/.ssh/id_rsa.pub"
+    echo "4. Verify OS version: ssh <user>@<ip> 'cat /etc/os-release | grep VERSION_ID'"
+    echo "5. Check if SSH key is authorized: cat ~/.ssh/id_rsa.pub"
     echo ""
     exit 1
 fi

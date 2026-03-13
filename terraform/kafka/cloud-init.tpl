@@ -2,6 +2,9 @@
 # Cloud-init configuration for Kafka broker VMs (Rocky Linux 9)
 # Installs system dependencies needed before Ansible configures Kafka
 
+package_update: true
+package_upgrade: false
+
 # Ensure required repositories are available before package install
 bootcmd:
   - dnf -y install dnf-plugins-core || true
@@ -27,7 +30,7 @@ packages:
 
 runcmd:
   # Update package cache
-  - dnf update -y
+  - dnf makecache || true
   
   # Create required directories with proper ownership
   - mkdir -p /opt/kafka
@@ -112,3 +115,14 @@ runcmd:
   
   # Log cloud-init completion
   - echo "Cloud-init bootstrap completed at $(date)" > /var/log/kafka-bootstrap-complete.log
+
+  # Upgrade Rocky Linux to latest 9.x (targeting 9.7) before handing over to Ansible
+  - dnf -y upgrade --refresh
+  - dnf clean all || true
+
+power_state:
+  delay: now
+  mode: reboot
+  message: "Rebooting after Rocky Linux system update"
+  timeout: 60
+  condition: true

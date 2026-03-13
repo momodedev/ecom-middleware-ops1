@@ -52,6 +52,10 @@ runcmd:
   
   # Login to Azure using managed identity (control node has Contributor role)
   - su - azureadmin -c 'az login --identity'
+
+  # Upgrade Rocky Linux to latest 9.x (targeting 9.7) after tools are installed
+  - dnf -y upgrade --refresh
+  - dnf clean all || true
   
   # Signal completion
   - touch /var/lib/cloud/instance/control-node-initialized
@@ -66,3 +70,10 @@ write_files:
       fi
 
 final_message: "Control node initialization complete after $UPTIME seconds"
+
+power_state:
+  delay: now
+  mode: reboot
+  message: "Rebooting control node after Rocky Linux system update"
+  timeout: 60
+  condition: true
