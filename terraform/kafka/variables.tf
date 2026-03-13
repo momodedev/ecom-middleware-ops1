@@ -116,7 +116,7 @@ variable "kafka_nsg_name" {
 variable "kafka_allowed_cidrs" {
   type        = list(string)
   default     = ["10.0.0.0/16"]
-  description = "CIDR blocks allowed to reach Kafka broker listeners (9092/9093/9094) and monitoring ports (9308/9100)."
+  description = "CIDR blocks allowed to reach Kafka broker listeners (9092/9093/9094), ZooKeeper ports (2181/2888/3888), and monitoring ports (9308/9100)."
 }
 
 variable "ssh_allowed_cidrs" {

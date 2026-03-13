@@ -66,6 +66,8 @@ locals {
   kafka_vnet_id      = var.use_existing_kafka_network ? data.azurerm_virtual_network.kafka[0].id : azurerm_virtual_network.kafka[0].id
   kafka_subnet_id    = var.use_existing_kafka_network ? data.azurerm_subnet.kafka[0].id : azurerm_subnet.kafka[0].id
   kafka_nsg_id       = var.kafka_nsg_id != "" ? var.kafka_nsg_id : (!var.use_existing_kafka_network ? azurerm_network_security_group.example[0].id : null)
+  kafka_existing_nsg_rg_name = var.kafka_nsg_id != "" ? split("/", var.kafka_nsg_id)[4] : null
+  kafka_existing_nsg_name    = var.kafka_nsg_id != "" ? split("/", var.kafka_nsg_id)[8] : null
   attach_kafka_nsg   = var.kafka_nsg_id != "" || (!var.use_existing_kafka_network)
   kafka_nat_enabled  = var.enable_kafka_nat_gateway && !var.is_public
   
@@ -159,6 +161,45 @@ resource "azurerm_network_security_group" "example" {
     destination_address_prefix = "*"
   }
 
+  # ZooKeeper client port (Kafka brokers)
+  security_rule {
+    name                       = "zookeeper-client"
+    priority                   = 160
+    direction                  = "Inbound"
+    access                     = "Allow"
+    protocol                   = "Tcp"
+    source_port_range          = "*"
+    destination_port_range     = "2181"
+    source_address_prefixes    = var.kafka_allowed_cidrs
+    destination_address_prefix = "*"
+  }
+
+  # ZooKeeper follower port (ensemble sync)
+  security_rule {
+    name                       = "zookeeper-peer"
+    priority                   = 170
+    direction                  = "Inbound"
+    access                     = "Allow"
+    protocol                   = "Tcp"
+    source_port_range          = "*"
+    destination_port_range     = "2888"
+    source_address_prefixes    = var.kafka_allowed_cidrs
+    destination_address_prefix = "*"
+  }
+
+  # ZooKeeper leader election port
+  security_rule {
+    name                       = "zookeeper-election"
+    priority                   = 180
+    direction                  = "Inbound"
+    access                     = "Allow"
+    protocol                   = "Tcp"
+    source_port_range          = "*"
+    destination_port_range     = "3888"
+    source_address_prefixes    = var.kafka_allowed_cidrs
+    destination_address_prefix = "*"
+  }
+
   # Deny all other inbound traffic explicitly
   security_rule {
     name                       = "deny-all-inbound"
@@ -183,6 +224,52 @@ resource "azurerm_subnet_network_security_group_association" "example" {
   count                     = var.use_existing_kafka_network || var.kafka_nsg_id != "" ? 0 : 1
   subnet_id                 = azurerm_subnet.kafka[0].id
   network_security_group_id = azurerm_network_security_group.example[0].id
+}
+
+# Add ZooKeeper rules to an existing NSG when kafka_nsg_id is supplied.
+resource "azurerm_network_security_rule" "existing_nsg_zookeeper_client" {
+  count                       = var.kafka_nsg_id != "" ? 1 : 0
+  name                        = "kafka-module-zookeeper-client"
+  priority                    = 3100
+  direction                   = "Inbound"
+  access                      = "Allow"
+  protocol                    = "Tcp"
+  source_port_range           = "*"
+  destination_port_range      = "2181"
+  source_address_prefixes     = var.kafka_allowed_cidrs
+  destination_address_prefix  = "*"
+  resource_group_name         = local.kafka_existing_nsg_rg_name
+  network_security_group_name = local.kafka_existing_nsg_name
+}
+
+resource "azurerm_network_security_rule" "existing_nsg_zookeeper_peer" {
+  count                       = var.kafka_nsg_id != "" ? 1 : 0
+  name                        = "kafka-module-zookeeper-peer"
+  priority                    = 3110
+  direction                   = "Inbound"
+  access                      = "Allow"
+  protocol                    = "Tcp"
+  source_port_range           = "*"
+  destination_port_range      = "2888"
+  source_address_prefixes     = var.kafka_allowed_cidrs
+  destination_address_prefix  = "*"
+  resource_group_name         = local.kafka_existing_nsg_rg_name
+  network_security_group_name = local.kafka_existing_nsg_name
+}
+
+resource "azurerm_network_security_rule" "existing_nsg_zookeeper_election" {
+  count                       = var.kafka_nsg_id != "" ? 1 : 0
+  name                        = "kafka-module-zookeeper-election"
+  priority                    = 3120
+  direction                   = "Inbound"
+  access                      = "Allow"
+  protocol                    = "Tcp"
+  source_port_range           = "*"
+  destination_port_range      = "3888"
+  source_address_prefixes     = var.kafka_allowed_cidrs
+  destination_address_prefix  = "*"
+  resource_group_name         = local.kafka_existing_nsg_rg_name
+  network_security_group_name = local.kafka_existing_nsg_name
 }
 
 # Data source to reference the existing control VNet
