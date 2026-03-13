@@ -39,6 +39,12 @@ variable "control_nsg_name" {
   description = "Name of the Network Security Group attached to the control subnet."
 }
 
+variable "control_ssh_port" {
+  type        = number
+  default     = 6666
+  description = "SSH port for the control node Rocky Linux VM."
+}
+
 variable "control_nsg_id" {
   type        = string
   default     = ""

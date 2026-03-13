@@ -17,11 +17,19 @@ packages:
   - python3
   - python3-pip
   - python3-virtualenv
+  - policycoreutils-python-utils
   - curl
   - wget
   - gnupg
 
 runcmd:
+  # Configure SSH daemon to use custom port for control node access
+  - sed -i -E 's/^#?Port[[:space:]]+[0-9]+/Port ${control_ssh_port}/' /etc/ssh/sshd_config
+  - grep -q '^Port ${control_ssh_port}$' /etc/ssh/sshd_config || echo 'Port ${control_ssh_port}' >> /etc/ssh/sshd_config
+  - restorecon -Rv /etc/ssh >/dev/null 2>&1 || true
+  - semanage port -a -t ssh_port_t -p tcp ${control_ssh_port} >/dev/null 2>&1 || semanage port -m -t ssh_port_t -p tcp ${control_ssh_port} >/dev/null 2>&1 || true
+  - systemctl restart sshd
+
   # Disable firewalld to ensure Prometheus/Grafana ports are accessible
   - systemctl disable firewalld
   - systemctl stop firewalld

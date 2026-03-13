@@ -53,6 +53,8 @@ data "azurerm_subnet" "control" {
 locals {
   control_subnet_id = var.use_existing_control_network ? data.azurerm_subnet.control[0].id : azurerm_subnet.control[0].id
   control_nsg_id    = var.control_nsg_id != "" ? var.control_nsg_id : (var.use_existing_control_network ? null : azurerm_network_security_group.example[0].id)
+  control_existing_nsg_rg_name = var.control_nsg_id != "" ? split("/", var.control_nsg_id)[4] : null
+  control_existing_nsg_name    = var.control_nsg_id != "" ? split("/", var.control_nsg_id)[8] : null
   attach_control_nsg = var.control_nsg_id != "" || !var.use_existing_control_network
 }
 
@@ -69,7 +71,7 @@ resource "azurerm_network_security_group" "example" {
     access                     = "Allow"
     protocol                   = "Tcp"
     source_port_range          = "*"
-    destination_port_range     = "22"
+    destination_port_range     = tostring(var.control_ssh_port)
     source_address_prefix      = "*"
     destination_address_prefix = "*"
   }
@@ -103,6 +105,21 @@ resource "azurerm_subnet_network_security_group_association" "example" {
   count                     = !var.use_existing_control_network && local.attach_control_nsg ? 1 : 0
   subnet_id                 = local.control_subnet_id
   network_security_group_id = local.control_nsg_id
+}
+
+resource "azurerm_network_security_rule" "existing_nsg_control_ssh" {
+  count                       = var.control_nsg_id != "" ? 1 : 0
+  name                        = "control-ssh-${var.control_ssh_port}"
+  priority                    = 3100
+  direction                   = "Inbound"
+  access                      = "Allow"
+  protocol                    = "Tcp"
+  source_port_range           = "*"
+  destination_port_range      = tostring(var.control_ssh_port)
+  source_address_prefix       = "*"
+  destination_address_prefix  = "*"
+  resource_group_name         = local.control_existing_nsg_rg_name
+  network_security_group_name = local.control_existing_nsg_name
 }
 
 # ==================== Control Node Public IP (for SSH access) ====================
@@ -166,7 +183,9 @@ resource "azurerm_linux_virtual_machine" "example" {
   }
 
   # Bootstrap control node with cloud-init (Azure best practice)
-  custom_data = base64encode(templatefile("${path.module}/cloud-init.tpl", {}))
+  custom_data = base64encode(templatefile("${path.module}/cloud-init.tpl", {
+    control_ssh_port = var.control_ssh_port
+  }))
 
   lifecycle {
     ignore_changes = [
