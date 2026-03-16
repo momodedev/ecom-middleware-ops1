@@ -36,7 +36,7 @@ if [[ ${#VM_NAMES[@]} -eq 0 ]]; then
   exit 1
 fi
 
-# Build host records: vm_name|private_ip|public_ip|node_id
+# Build host records: vm_name|private_ip|public_ip|preferred_ssh_ip|node_id
 HOST_RECORDS=()
 INDEX=0
 for VM in "${VM_NAMES[@]}"; do
@@ -48,14 +48,20 @@ for VM in "${VM_NAMES[@]}"; do
     exit 1
   fi
 
-  # For this CentOS lane we expect public access (is_public=true)
-  if [[ -z "$PUBLIC_IP" || "$PUBLIC_IP" == "null" ]]; then
-    echo "ERROR: Missing public IP for VM $VM. Ensure is_public=true in terraform/centos/terraform.tfvars." >&2
-    exit 1
+  if [[ "$PUBLIC_IP" == "null" ]]; then
+    PUBLIC_IP=""
+  fi
+
+  # Prefer private IP for SSH from control node; fallback to public if needed.
+  PREFERRED_SSH_IP="$PRIVATE_IP"
+  if ! timeout 8 ssh -o StrictHostKeyChecking=no -o ConnectTimeout=5 -o BatchMode=yes -i "$SSH_KEY" "$BROKER_USER@$PREFERRED_SSH_IP" "echo SSH_OK" >/dev/null 2>&1; then
+    if [[ -n "$PUBLIC_IP" ]] && timeout 8 ssh -o StrictHostKeyChecking=no -o ConnectTimeout=5 -o BatchMode=yes -i "$SSH_KEY" "$BROKER_USER@$PUBLIC_IP" "echo SSH_OK" >/dev/null 2>&1; then
+      PREFERRED_SSH_IP="$PUBLIC_IP"
+    fi
   fi
 
   NODE_ID=$((INDEX + 1))
-  HOST_RECORDS+=("$VM|$PRIVATE_IP|$PUBLIC_IP|$NODE_ID")
+  HOST_RECORDS+=("$VM|$PRIVATE_IP|$PUBLIC_IP|$PREFERRED_SSH_IP|$NODE_ID")
   INDEX=$((INDEX + 1))
 done
 
@@ -66,11 +72,13 @@ for REC in "${HOST_RECORDS[@]}"; do
   PRIVATE_IP="${REST%%|*}"
   REST="${REST#*|}"
   PUBLIC_IP="${REST%%|*}"
+  REST="${REST#*|}"
+  PREFERRED_SSH_IP="${REST%%|*}"
 
-  echo "[check] SSH readiness for $VM_NAME ($PUBLIC_IP)"
+  echo "[check] SSH readiness for $VM_NAME (prefer private: $PRIVATE_IP, selected: $PREFERRED_SSH_IP)"
   READY=0
   for TRY in $(seq 1 24); do
-    if timeout 15 ssh -o StrictHostKeyChecking=no -o ConnectTimeout=8 -o BatchMode=yes -i "$SSH_KEY" "$BROKER_USER@$PUBLIC_IP" "echo SSH_OK" >/dev/null 2>&1; then
+    if timeout 15 ssh -o StrictHostKeyChecking=no -o ConnectTimeout=8 -o BatchMode=yes -i "$SSH_KEY" "$BROKER_USER@$PREFERRED_SSH_IP" "echo SSH_OK" >/dev/null 2>&1; then
       READY=1
       break
     fi
@@ -78,12 +86,12 @@ for REC in "${HOST_RECORDS[@]}"; do
   done
 
   if [[ $READY -ne 1 ]]; then
-    echo "ERROR: SSH not ready for $VM_NAME ($PUBLIC_IP)" >&2
+    echo "ERROR: SSH not ready for $VM_NAME (private=$PRIVATE_IP public=${PUBLIC_IP:-none})" >&2
     exit 1
   fi
 
   # Basic cloud-init completion check (best-effort)
-  timeout 15 ssh -o StrictHostKeyChecking=no -o ConnectTimeout=8 -o BatchMode=yes -i "$SSH_KEY" "$BROKER_USER@$PUBLIC_IP" "test -f /var/log/kafka-bootstrap-complete.log" >/dev/null 2>&1 || true
+  timeout 15 ssh -o StrictHostKeyChecking=no -o ConnectTimeout=8 -o BatchMode=yes -i "$SSH_KEY" "$BROKER_USER@$PREFERRED_SSH_IP" "test -f /var/log/kafka-bootstrap-complete.log" >/dev/null 2>&1 || true
 
 done
 
@@ -98,8 +106,10 @@ MON_INV="$INV_DIR/inventory.ini"
     PRIVATE_IP="${REST%%|*}"
     REST="${REST#*|}"
     PUBLIC_IP="${REST%%|*}"
+    REST="${REST#*|}"
+    PREFERRED_SSH_IP="${REST%%|*}"
     NODE_ID="${REC##*|}"
-    echo "$VM_NAME ansible_host=$PUBLIC_IP private_ip=$PRIVATE_IP kafka_node_id=$NODE_ID"
+    echo "$VM_NAME ansible_host=$PREFERRED_SSH_IP private_ip=$PRIVATE_IP public_ip=$PUBLIC_IP kafka_node_id=$NODE_ID"
   done
   echo
   echo "[all:vars]"
@@ -120,7 +130,9 @@ MON_INV="$INV_DIR/inventory.ini"
     PRIVATE_IP="${REST%%|*}"
     REST="${REST#*|}"
     PUBLIC_IP="${REST%%|*}"
-    echo "$VM_NAME ansible_host=$PUBLIC_IP ansible_user=$BROKER_USER"
+    REST="${REST#*|}"
+    PREFERRED_SSH_IP="${REST%%|*}"
+    echo "$VM_NAME ansible_host=$PREFERRED_SSH_IP ansible_user=$BROKER_USER private_ip=$PRIVATE_IP public_ip=$PUBLIC_IP"
   done
   echo
   echo "[kafka_broker:vars]"
