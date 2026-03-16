@@ -105,7 +105,9 @@ MON_INV="$INV_DIR/inventory.ini"
   echo "[all:vars]"
   echo "ansible_user=$BROKER_USER"
   echo "ansible_ssh_private_key_file=$SSH_KEY"
-  echo "ansible_python_interpreter=/usr/bin/python3"
+  # CentOS 7 images can expose python at /usr/bin/python (not /usr/bin/python3).
+  # Let Ansible auto-detect the best interpreter per host.
+  echo "ansible_python_interpreter=auto_silent"
 } > "$KAFKA_INV"
 
 {
@@ -121,6 +123,9 @@ MON_INV="$INV_DIR/inventory.ini"
     PUBLIC_IP="${REST%%|*}"
     echo "$VM_NAME ansible_host=$PUBLIC_IP ansible_user=$BROKER_USER"
   done
+  echo
+  echo "[kafka_broker:vars]"
+  echo "ansible_python_interpreter=auto_silent"
 } > "$MON_INV"
 
 echo "Generated: $KAFKA_INV"
