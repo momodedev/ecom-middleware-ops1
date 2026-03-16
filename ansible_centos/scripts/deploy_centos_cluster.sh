@@ -34,33 +34,36 @@ KAFKA_CACHE_PATH="$KAFKA_CACHE_DIR/$KAFKA_ARCHIVE_NAME"
 if [[ ! -s "$KAFKA_CACHE_PATH" ]]; then
   echo "[prep] Downloading Kafka archive on control node cache: $KAFKA_ARCHIVE_NAME"
 
+  # ?action=download tells Apache closer.lua to issue a real 302 redirect to an
+  # actual mirror binary instead of returning an HTML chooser page.
   download_sources=(
     "${KAFKA_232_URL:-}"
-    "https://downloads.apache.org/kafka/${KAFKA_SELECTED_VERSION}/${KAFKA_ARCHIVE_NAME}"
+    "https://www.apache.org/dyn/closer.lua/kafka/${KAFKA_SELECTED_VERSION}/${KAFKA_ARCHIVE_NAME}?action=download"
     "https://archive.apache.org/dist/kafka/${KAFKA_SELECTED_VERSION}/${KAFKA_ARCHIVE_NAME}"
-    "https://www.apache.org/dyn/closer.lua?path=/kafka/${KAFKA_SELECTED_VERSION}/${KAFKA_ARCHIVE_NAME}&as_json=1"
+    "https://downloads.apache.org/kafka/${KAFKA_SELECTED_VERSION}/${KAFKA_ARCHIVE_NAME}"
   )
 
   for src in "${download_sources[@]}"; do
     [[ -z "$src" ]] && continue
+    echo "[prep]   trying: $src"
+    tmp_path="${KAFKA_CACHE_PATH}.tmp"
     if command -v curl >/dev/null 2>&1; then
-      if [[ "$src" == *"as_json=1"* ]]; then
-        mirror_url=$(curl --fail --silent --show-error "$src" | sed -n 's/.*"preferred"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p')
-        if [[ -n "${mirror_url:-}" ]]; then
-          mirror_url="${mirror_url%/}/kafka/${KAFKA_SELECTED_VERSION}/${KAFKA_ARCHIVE_NAME}"
-          curl --fail --location --retry 3 --retry-delay 2 "$mirror_url" -o "$KAFKA_CACHE_PATH" && break || true
-        fi
-      else
-        curl --fail --location --retry 3 --retry-delay 2 "$src" -o "$KAFKA_CACHE_PATH" && break || true
-      fi
+      curl --fail --location --retry 3 --retry-delay 2 \
+        --max-time 600 "$src" -o "$tmp_path" 2>/dev/null || { rm -f "$tmp_path"; continue; }
     elif command -v wget >/dev/null 2>&1; then
-      if [[ "$src" == *"as_json=1"* ]]; then
-        continue
-      fi
-      wget -O "$KAFKA_CACHE_PATH" "$src" && break || true
+      wget --tries=3 --timeout=600 -O "$tmp_path" "$src" || { rm -f "$tmp_path"; continue; }
     else
       echo "ERROR: neither curl nor wget is available to pre-download Kafka archive." >&2
       exit 1
+    fi
+    # Verify the file is a real gzip archive, not an HTML page.
+    if file "$tmp_path" 2>/dev/null | grep -qi "gzip\|tar\|compressed"; then
+      mv "$tmp_path" "$KAFKA_CACHE_PATH"
+      echo "[prep]   downloaded successfully from: $src"
+      break
+    else
+      echo "[prep]   rejected (not a valid archive, got HTML or empty): $src"
+      rm -f "$tmp_path"
     fi
   done
 fi
