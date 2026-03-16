@@ -15,9 +15,7 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 BASE_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 KAFKA_VERSION="2.3.2"
 KAFKA_SCALA_VERSION="2.12"
-KAFKA_ARCHIVE_NAME="kafka_${KAFKA_SCALA_VERSION}-${KAFKA_VERSION}.tgz"
 KAFKA_CACHE_DIR="$BASE_DIR/cache"
-KAFKA_CACHE_PATH="$KAFKA_CACHE_DIR/$KAFKA_ARCHIVE_NAME"
 KAFKA_HTTP_PORT="18080"
 
 if ! command -v ansible-playbook >/dev/null 2>&1; then
@@ -29,25 +27,53 @@ bash "$SCRIPT_DIR/generate_inventory_centos.sh" "$RESOURCE_GROUP" "$BROKER_USER"
 
 mkdir -p "$KAFKA_CACHE_DIR"
 
+KAFKA_SELECTED_VERSION="$KAFKA_VERSION"
+KAFKA_ARCHIVE_NAME="kafka_${KAFKA_SCALA_VERSION}-${KAFKA_SELECTED_VERSION}.tgz"
+KAFKA_CACHE_PATH="$KAFKA_CACHE_DIR/$KAFKA_ARCHIVE_NAME"
+
 if [[ ! -s "$KAFKA_CACHE_PATH" ]]; then
   echo "[prep] Downloading Kafka archive on control node cache: $KAFKA_ARCHIVE_NAME"
-  if command -v curl >/dev/null 2>&1; then
-    curl --fail --location --retry 3 --retry-delay 2 \
-      "https://archive.apache.org/dist/kafka/${KAFKA_VERSION}/${KAFKA_ARCHIVE_NAME}" \
-      -o "$KAFKA_CACHE_PATH"
-  elif command -v wget >/dev/null 2>&1; then
-    wget -O "$KAFKA_CACHE_PATH" \
-      "https://archive.apache.org/dist/kafka/${KAFKA_VERSION}/${KAFKA_ARCHIVE_NAME}"
-  else
-    echo "ERROR: neither curl nor wget is available to pre-download Kafka archive." >&2
-    exit 1
-  fi
+
+  download_sources=(
+    "${KAFKA_232_URL:-}"
+    "https://downloads.apache.org/kafka/${KAFKA_SELECTED_VERSION}/${KAFKA_ARCHIVE_NAME}"
+    "https://archive.apache.org/dist/kafka/${KAFKA_SELECTED_VERSION}/${KAFKA_ARCHIVE_NAME}"
+    "https://www.apache.org/dyn/closer.lua?path=/kafka/${KAFKA_SELECTED_VERSION}/${KAFKA_ARCHIVE_NAME}&as_json=1"
+  )
+
+  for src in "${download_sources[@]}"; do
+    [[ -z "$src" ]] && continue
+    if command -v curl >/dev/null 2>&1; then
+      if [[ "$src" == *"as_json=1"* ]]; then
+        mirror_url=$(curl --fail --silent --show-error "$src" | sed -n 's/.*"preferred"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p')
+        if [[ -n "${mirror_url:-}" ]]; then
+          mirror_url="${mirror_url%/}/kafka/${KAFKA_SELECTED_VERSION}/${KAFKA_ARCHIVE_NAME}"
+          curl --fail --location --retry 3 --retry-delay 2 "$mirror_url" -o "$KAFKA_CACHE_PATH" && break || true
+        fi
+      else
+        curl --fail --location --retry 3 --retry-delay 2 "$src" -o "$KAFKA_CACHE_PATH" && break || true
+      fi
+    elif command -v wget >/dev/null 2>&1; then
+      if [[ "$src" == *"as_json=1"* ]]; then
+        continue
+      fi
+      wget -O "$KAFKA_CACHE_PATH" "$src" && break || true
+    else
+      echo "ERROR: neither curl nor wget is available to pre-download Kafka archive." >&2
+      exit 1
+    fi
+  done
 fi
 
 if [[ ! -s "$KAFKA_CACHE_PATH" ]]; then
-  echo "ERROR: Kafka archive cache is missing or empty at $KAFKA_CACHE_PATH" >&2
+  echo "ERROR: Kafka 2.3.2 archive unavailable from configured sources." >&2
+  echo "       Required file: $KAFKA_ARCHIVE_NAME" >&2
+  echo "       Place it manually at: $KAFKA_CACHE_PATH" >&2
+  echo "       Or set a direct URL: export KAFKA_232_URL='https://<your-repo>/kafka_2.12-2.3.2.tgz'" >&2
   exit 1
 fi
+
+echo "[prep] Using Kafka binary version: ${KAFKA_SELECTED_VERSION} (${KAFKA_ARCHIVE_NAME})"
 
 if command -v python3 >/dev/null 2>&1; then
   PY_HTTP_BIN="python3"
@@ -136,6 +162,8 @@ ANSIBLE_HOST_KEY_CHECKING=False ansible -i "$BASE_DIR/inventory/kafka_hosts" kaf
 ANSIBLE_HOST_KEY_CHECKING=False ansible-playbook -i "$BASE_DIR/inventory/kafka_hosts" "$BASE_DIR/playbooks/deploy_kafka_playbook.yml" \
   -e "kafka_primary_url=http://${CONTROL_PRIVATE_IP}:${KAFKA_HTTP_PORT}/${KAFKA_ARCHIVE_NAME}" \
   -e "kafka_fallback_url=http://${CONTROL_PRIVATE_IP}:${KAFKA_HTTP_PORT}/${KAFKA_ARCHIVE_NAME}" \
+  -e "kafka_version=${KAFKA_SELECTED_VERSION}" \
+  -e "kafka_scala_version=${KAFKA_SCALA_VERSION}" \
   -e "kafka_archive_path=/tmp/${KAFKA_ARCHIVE_NAME}" \
   -e "kafka_download_timeout=120"
 ansible-playbook -i "$BASE_DIR/inventory/inventory.ini" "$BASE_DIR/playbooks/deploy_monitoring_playbook.yml"
