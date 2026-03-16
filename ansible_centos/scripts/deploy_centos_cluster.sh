@@ -21,11 +21,48 @@ fi
 
 bash "$SCRIPT_DIR/generate_inventory_centos.sh" "$RESOURCE_GROUP" "$BROKER_USER" "$CONTROL_USER"
 
-# Bootstrap Python on brokers using raw (does not require Python on remote).
-# This prevents early playbook tasks from failing when /usr/bin/python3 is missing.
+# Fix DNS first (CentOS OpenLogic images sometimes miss working resolvers).
 ANSIBLE_HOST_KEY_CHECKING=False ansible -i "$BASE_DIR/inventory/kafka_hosts" kafka \
   -m raw \
-  -a "test -x /usr/bin/python || (sudo yum -y install python || sudo yum -y install python2)" \
+  -a "sudo bash -lc 'printf \"nameserver 168.63.129.16\\nnameserver 1.1.1.1\\n\" > /etc/resolv.conf'" \
+  || true
+
+# Replace all legacy/mirrorlist repos with CentOS 7.9 vault repos.
+ANSIBLE_HOST_KEY_CHECKING=False ansible -i "$BASE_DIR/inventory/kafka_hosts" kafka \
+  -m raw \
+  -a "sudo bash -lc 'for f in /etc/yum.repos.d/*.repo; do mv \"\$f\" \"\$f.disabled\" || true; done; cat > /etc/yum.repos.d/CentOS-Vault.repo <<\"EOF\"
+[base]
+name=CentOS-7.9.2009 - Base
+baseurl=http://vault.centos.org/7.9.2009/os/\$basearch/
+gpgcheck=1
+enabled=1
+gpgkey=file:///etc/pki/rpm-gpg/RPM-GPG-KEY-CentOS-7
+
+[updates]
+name=CentOS-7.9.2009 - Updates
+baseurl=http://vault.centos.org/7.9.2009/updates/\$basearch/
+gpgcheck=1
+enabled=1
+gpgkey=file:///etc/pki/rpm-gpg/RPM-GPG-KEY-CentOS-7
+
+[extras]
+name=CentOS-7.9.2009 - Extras
+baseurl=http://vault.centos.org/7.9.2009/extras/\$basearch/
+gpgcheck=1
+enabled=1
+gpgkey=file:///etc/pki/rpm-gpg/RPM-GPG-KEY-CentOS-7
+EOF'" \
+  || true
+
+ANSIBLE_HOST_KEY_CHECKING=False ansible -i "$BASE_DIR/inventory/kafka_hosts" kafka \
+  -m raw \
+  -a "sudo yum clean all; sudo rm -rf /var/cache/yum; sudo yum makecache -y" \
+  || true
+
+# Bootstrap Python and Java using raw (works even when python is initially absent).
+ANSIBLE_HOST_KEY_CHECKING=False ansible -i "$BASE_DIR/inventory/kafka_hosts" kafka \
+  -m raw \
+  -a "test -x /usr/bin/python || (sudo yum -y install python || sudo yum -y install python2 || true)" \
   || true
 
 ANSIBLE_HOST_KEY_CHECKING=False ansible -i "$BASE_DIR/inventory/kafka_hosts" kafka \
@@ -35,7 +72,12 @@ ANSIBLE_HOST_KEY_CHECKING=False ansible -i "$BASE_DIR/inventory/kafka_hosts" kaf
 
 ANSIBLE_HOST_KEY_CHECKING=False ansible -i "$BASE_DIR/inventory/kafka_hosts" kafka \
   -m raw \
-  -a "test -x /usr/bin/python || sudo ln -sf /usr/bin/python3 /usr/bin/python" \
+  -a "rpm -q java-11-openjdk >/dev/null 2>&1 || sudo yum -y install java-11-openjdk java-11-openjdk-devel" \
+  || true
+
+ANSIBLE_HOST_KEY_CHECKING=False ansible -i "$BASE_DIR/inventory/kafka_hosts" kafka \
+  -m raw \
+  -a "test -x /usr/bin/python || test ! -x /usr/bin/python3 || sudo ln -sf /usr/bin/python3 /usr/bin/python" \
   || true
 
 ANSIBLE_HOST_KEY_CHECKING=False ansible-playbook -i "$BASE_DIR/inventory/kafka_hosts" "$BASE_DIR/playbooks/deploy_kafka_playbook.yml"

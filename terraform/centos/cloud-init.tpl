@@ -7,6 +7,37 @@ package_update: true
 package_upgrade: false
 
 bootcmd:
+  # Ensure Azure DNS first so yum repos can resolve.
+  - printf "nameserver 168.63.129.16\nnameserver 1.1.1.1\n" > /etc/resolv.conf
+
+  # CentOS 7 mirrorlist endpoints are often unavailable; pin to vault.
+  - |
+    for f in /etc/yum.repos.d/*.repo; do
+      mv "$f" "$f.disabled" || true
+    done
+    cat > /etc/yum.repos.d/CentOS-Vault.repo <<'EOF'
+    [base]
+    name=CentOS-7.9.2009 - Base
+    baseurl=http://vault.centos.org/7.9.2009/os/$basearch/
+    gpgcheck=1
+    enabled=1
+    gpgkey=file:///etc/pki/rpm-gpg/RPM-GPG-KEY-CentOS-7
+
+    [updates]
+    name=CentOS-7.9.2009 - Updates
+    baseurl=http://vault.centos.org/7.9.2009/updates/$basearch/
+    gpgcheck=1
+    enabled=1
+    gpgkey=file:///etc/pki/rpm-gpg/RPM-GPG-KEY-CentOS-7
+
+    [extras]
+    name=CentOS-7.9.2009 - Extras
+    baseurl=http://vault.centos.org/7.9.2009/extras/$basearch/
+    gpgcheck=1
+    enabled=1
+    gpgkey=file:///etc/pki/rpm-gpg/RPM-GPG-KEY-CentOS-7
+    EOF
+
   # EPEL provides python3-pip and extra packages needed for Ansible venv
   - yum -y install epel-release 2>/dev/null || true
   - yum clean all 2>/dev/null || true
