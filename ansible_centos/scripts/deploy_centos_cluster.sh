@@ -13,6 +13,12 @@ BROKER_USER="$2"
 CONTROL_USER="${3:-azureadmin}"
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 BASE_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
+KAFKA_VERSION="2.3.2"
+KAFKA_SCALA_VERSION="2.12"
+KAFKA_ARCHIVE_NAME="kafka_${KAFKA_SCALA_VERSION}-${KAFKA_VERSION}.tgz"
+KAFKA_CACHE_DIR="$BASE_DIR/cache"
+KAFKA_CACHE_PATH="$KAFKA_CACHE_DIR/$KAFKA_ARCHIVE_NAME"
+KAFKA_HTTP_PORT="18080"
 
 if ! command -v ansible-playbook >/dev/null 2>&1; then
   echo "ERROR: ansible-playbook not found in PATH. Activate ansible-venv first." >&2
@@ -20,6 +26,53 @@ if ! command -v ansible-playbook >/dev/null 2>&1; then
 fi
 
 bash "$SCRIPT_DIR/generate_inventory_centos.sh" "$RESOURCE_GROUP" "$BROKER_USER" "$CONTROL_USER"
+
+mkdir -p "$KAFKA_CACHE_DIR"
+
+if [[ ! -s "$KAFKA_CACHE_PATH" ]]; then
+  echo "[prep] Downloading Kafka archive on control node cache: $KAFKA_ARCHIVE_NAME"
+  if command -v curl >/dev/null 2>&1; then
+    curl --fail --location --retry 3 --retry-delay 2 \
+      "https://archive.apache.org/dist/kafka/${KAFKA_VERSION}/${KAFKA_ARCHIVE_NAME}" \
+      -o "$KAFKA_CACHE_PATH"
+  elif command -v wget >/dev/null 2>&1; then
+    wget -O "$KAFKA_CACHE_PATH" \
+      "https://archive.apache.org/dist/kafka/${KAFKA_VERSION}/${KAFKA_ARCHIVE_NAME}"
+  else
+    echo "ERROR: neither curl nor wget is available to pre-download Kafka archive." >&2
+    exit 1
+  fi
+fi
+
+if [[ ! -s "$KAFKA_CACHE_PATH" ]]; then
+  echo "ERROR: Kafka archive cache is missing or empty at $KAFKA_CACHE_PATH" >&2
+  exit 1
+fi
+
+if command -v python3 >/dev/null 2>&1; then
+  PY_HTTP_BIN="python3"
+elif command -v python >/dev/null 2>&1; then
+  PY_HTTP_BIN="python"
+else
+  echo "ERROR: python3/python is required on control node to host local Kafka archive." >&2
+  exit 1
+fi
+
+CONTROL_PRIVATE_IP=$(hostname -I 2>/dev/null | awk '{print $1}')
+if [[ -z "${CONTROL_PRIVATE_IP:-}" ]]; then
+  echo "ERROR: unable to determine control node private IP (hostname -I)." >&2
+  exit 1
+fi
+
+echo "[prep] Serving Kafka archive locally at http://${CONTROL_PRIVATE_IP}:${KAFKA_HTTP_PORT}/${KAFKA_ARCHIVE_NAME}"
+"$PY_HTTP_BIN" -m http.server "$KAFKA_HTTP_PORT" --directory "$KAFKA_CACHE_DIR" >/tmp/kafka_http_server.log 2>&1 &
+KAFKA_HTTP_PID=$!
+cleanup() {
+  if [[ -n "${KAFKA_HTTP_PID:-}" ]] && kill -0 "$KAFKA_HTTP_PID" 2>/dev/null; then
+    kill "$KAFKA_HTTP_PID" 2>/dev/null || true
+  fi
+}
+trap cleanup EXIT
 
 # Fix DNS first (CentOS OpenLogic images sometimes miss working resolvers).
 ANSIBLE_HOST_KEY_CHECKING=False ansible -i "$BASE_DIR/inventory/kafka_hosts" kafka \
@@ -80,7 +133,11 @@ ANSIBLE_HOST_KEY_CHECKING=False ansible -i "$BASE_DIR/inventory/kafka_hosts" kaf
   -a "test -x /usr/bin/python || test ! -x /usr/bin/python3 || sudo ln -sf /usr/bin/python3 /usr/bin/python" \
   || true
 
-ANSIBLE_HOST_KEY_CHECKING=False ansible-playbook -i "$BASE_DIR/inventory/kafka_hosts" "$BASE_DIR/playbooks/deploy_kafka_playbook.yml"
+ANSIBLE_HOST_KEY_CHECKING=False ansible-playbook -i "$BASE_DIR/inventory/kafka_hosts" "$BASE_DIR/playbooks/deploy_kafka_playbook.yml" \
+  -e "kafka_primary_url=http://${CONTROL_PRIVATE_IP}:${KAFKA_HTTP_PORT}/${KAFKA_ARCHIVE_NAME}" \
+  -e "kafka_fallback_url=http://${CONTROL_PRIVATE_IP}:${KAFKA_HTTP_PORT}/${KAFKA_ARCHIVE_NAME}" \
+  -e "kafka_archive_path=/tmp/${KAFKA_ARCHIVE_NAME}" \
+  -e "kafka_download_timeout=120"
 ansible-playbook -i "$BASE_DIR/inventory/inventory.ini" "$BASE_DIR/playbooks/deploy_monitoring_playbook.yml"
 
 echo "CentOS Kafka + monitoring deployment completed."
