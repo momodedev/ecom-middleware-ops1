@@ -1,0 +1,275 @@
+**Ready-to-run test runbook (Kafka 2.3.2 A/B on Azure V5+CentOS7.9 vs V6+Rocky9.7)**
+
+Assumptions:
+1. Control node Terraform in manage_node is already working in your environment.
+2. You have a CentOS-compatible test branch or patch applied for broker image/bootstrap compatibility in the Kafka Terraform path.
+3. Both lanes use Java 11 and Kafka 2.3.2.
+4. You run local steps in Windows PowerShell, and remote steps on the Linux control node shell.
+
+---
+
+**Phase 0: Define test constants**
+
+Use these constants for both lanes:
+1. Broker count: 3
+2. Topic partitions: 24
+3. Replication factor: 3
+4. Min ISR: 2
+5. Message sizes: 100B, 1KB, 10KB
+6. Compression: none, snappy, lz4
+7. Producer duration per case: 600s
+8. Same region, same VNet policy, same disk size and caching mode
+
+---
+
+**Phase 1: Local workstation (PowerShell) - deploy/verify control node**
+
+Copy/paste:
+
+    cd C:\Users\v-chengzhiz\haixin\ecom-middleware-ops1\terraform\manage_node
+    terraform init
+    terraform plan -var-file="secret.tfvars"
+    terraform apply -var-file="secret.tfvars" -auto-approve
+    terraform output
+
+Get control node public IP from output, then SSH:
+
+    ssh -i id_rsa azureadmin@CONTROL_PUBLIC_IP -p 6666
+
+---
+
+**Phase 2: Control node - environment prep**
+
+Copy/paste:
+
+    set -euo pipefail
+    cd ~/ecom-middleware-ops1
+    az account show
+    terraform -version
+    ansible --version
+    source ~/ansible-venv/bin/activate || true
+    mkdir -p ~/perf-results/lane-v5-centos ~/perf-results/lane-v6-rocky
+    date
+
+---
+
+**Phase 3: Control node - create lane-specific tfvars**
+
+Create V6 Rocky lane file:
+
+    cat > ~/ecom-middleware-ops1/terraform/kafka/lane-v6-rocky.tfvars << 'EOF'
+    ARM_SUBSCRIPTION_ID="YOUR_SUBSCRIPTION_ID"
+    resource_group_name="kafka-perf-v6-rocky"
+    resource_group_location="westus"
+    kafka_instance_count=3
+    kafka_vm_size="Standard_D8ls_v6"
+    kafka_data_disk_iops=3000
+    kafka_data_disk_throughput_mbps=125
+    use_existing_kafka_network=true
+    existing_kafka_vnet_resource_group_name="rds-prod"
+    kafka_vnet_name="rds-prod-vnet"
+    kafka_subnet_name="rds-prod-subnet"
+    enable_kafka_nat_gateway=false
+    kafka_nsg_id="/subscriptions/YOUR_SUBSCRIPTION_ID/resourceGroups/rds-prod/providers/Microsoft.Network/networkSecurityGroups/rds-prod-nsg"
+    enable_vnet_peering=false
+    enable_availability_zones=false
+    kafka_vm_zone=""
+    is_public=true
+    repository_name="ecom-middleware-ops1"
+    control_node_user="azureadmin"
+    EOF
+
+Create V5 CentOS lane file (requires your CentOS-capable Kafka Terraform branch/patch):
+
+    cat > ~/ecom-middleware-ops1/terraform/kafka/lane-v5-centos.tfvars << 'EOF'
+    ARM_SUBSCRIPTION_ID="YOUR_SUBSCRIPTION_ID"
+    resource_group_name="kafka-perf-v5-centos"
+    resource_group_location="westus"
+    kafka_instance_count=3
+    kafka_vm_size="Standard_D8s_v5"
+    kafka_data_disk_iops=3000
+    kafka_data_disk_throughput_mbps=125
+    use_existing_kafka_network=true
+    existing_kafka_vnet_resource_group_name="rds-prod"
+    kafka_vnet_name="rds-prod-vnet"
+    kafka_subnet_name="rds-prod-subnet"
+    enable_kafka_nat_gateway=false
+    kafka_nsg_id="/subscriptions/YOUR_SUBSCRIPTION_ID/resourceGroups/rds-prod/providers/Microsoft.Network/networkSecurityGroups/rds-prod-nsg"
+    enable_vnet_peering=false
+    enable_availability_zones=false
+    kafka_vm_zone=""
+    is_public=true
+    repository_name="ecom-middleware-ops1"
+    control_node_user="azureadmin"
+
+    # image settings below must match your CentOS-capable branch variables:
+    # os_publisher="OpenLogic"
+    # os_offer="CentOS"
+    # os_sku="7.9"
+    # os_version="latest"
+    EOF
+
+---
+
+**Phase 4: Execute lane V6 (Rocky 9.7 + V6 VM)**
+
+Copy/paste:
+
+    set -euo pipefail
+    cd ~/ecom-middleware-ops1/terraform/kafka
+    terraform init
+    terraform plan -var-file=lane-v6-rocky.tfvars -out=plan-v6.out
+    terraform apply -auto-approve plan-v6.out
+
+If Ansible did not auto-run, run manually:
+
+    cd ~/ecom-middleware-ops1/ansible
+    source ~/ansible-venv/bin/activate
+    ansible-playbook -i inventory/kafka_hosts playbooks/deploy_kafka_playbook.yaml
+    ansible-playbook -i inventory/inventory.ini playbooks/deploy_monitoring_playbook.yml
+
+Health/monitoring checks:
+
+    cd ~/ecom-middleware-ops1/ansible
+    bash scripts/kafka_health_check.sh | tee ~/perf-results/lane-v6-rocky/health.txt
+    sudo systemctl is-active prometheus
+    sudo systemctl is-active grafana-server
+    curl -s http://localhost:9090/-/ready | tee ~/perf-results/lane-v6-rocky/prom-ready.txt
+    curl -s http://localhost:3000/api/health | tee ~/perf-results/lane-v6-rocky/grafana-health.json
+
+---
+
+**Phase 5: Execute lane V5 (CentOS 7.9 + V5 VM)**
+
+Copy/paste:
+
+    set -euo pipefail
+    cd ~/ecom-middleware-ops1/terraform/kafka
+    terraform init
+    terraform plan -var-file=lane-v5-centos.tfvars -out=plan-v5.out
+    terraform apply -auto-approve plan-v5.out
+
+Manual Ansible fallback if needed:
+
+    cd ~/ecom-middleware-ops1/ansible
+    source ~/ansible-venv/bin/activate
+    ansible-playbook -i inventory/kafka_hosts playbooks/deploy_kafka_playbook.yaml
+    ansible-playbook -i inventory/inventory.ini playbooks/deploy_monitoring_playbook.yml
+
+Health/monitoring checks:
+
+    cd ~/ecom-middleware-ops1/ansible
+    bash scripts/kafka_health_check.sh | tee ~/perf-results/lane-v5-centos/health.txt
+    sudo systemctl is-active prometheus
+    sudo systemctl is-active grafana-server
+    curl -s http://localhost:9090/-/ready | tee ~/perf-results/lane-v5-centos/prom-ready.txt
+    curl -s http://localhost:3000/api/health | tee ~/perf-results/lane-v5-centos/grafana-health.json
+
+---
+
+**Phase 6: Baseline system tests per lane (CPU, disk, network)**
+
+Run on each lane separately (from control node against each broker or directly on broker SSH).
+
+CPU baseline:
+
+    sysbench cpu --threads=8 --time=120 run | tee ~/perf-results/LANE/cpu.txt
+
+Disk baseline on broker (example via SSH):
+
+    ssh rockyadmin@BROKER_IP "sudo fio --name=seqwrite --filename=/data/kafka/fio.test --size=4G --bs=128k --rw=write --iodepth=16 --direct=1 --numjobs=1 --runtime=120 --time_based --group_reporting" | tee ~/perf-results/LANE/fio-seqwrite.txt
+
+Network baseline (iperf3, one broker server and one client):
+
+    ssh rockyadmin@BROKER1_IP "pkill -f iperf3 || true; nohup iperf3 -s > /tmp/iperf3-server.log 2>&1 &"
+    ssh rockyadmin@BROKER2_IP "iperf3 -c BROKER1_IP -t 60 -P 4" | tee ~/perf-results/LANE/iperf3.txt
+
+---
+
+**Phase 7: Kafka workload tests per lane**
+
+Create topic once per lane:
+
+    /opt/kafka/bin/kafka-topics.sh --bootstrap-server BROKER1_IP:9092 --create --if-not-exists --topic perf-topic --partitions 24 --replication-factor 3
+
+Producer test matrix loop:
+
+    for SIZE in 100 1024 10240; do
+      for COMP in none snappy lz4; do
+        /opt/kafka/bin/kafka-producer-perf-test.sh \
+          --topic perf-topic \
+          --num-records 5000000 \
+          --record-size ${SIZE} \
+          --throughput -1 \
+          --producer-props bootstrap.servers=BROKER1_IP:9092 acks=all linger.ms=10 batch.size=65536 compression.type=${COMP} \
+          --print-metrics \
+          --time 600 \
+          | tee ~/perf-results/LANE/producer-size${SIZE}-comp${COMP}.txt
+      done
+    done
+
+Consumer test:
+
+    /opt/kafka/bin/kafka-consumer-perf-test.sh \
+      --bootstrap-server BROKER1_IP:9092 \
+      --topic perf-topic \
+      --messages 5000000 \
+      --threads 4 \
+      | tee ~/perf-results/LANE/consumer.txt
+
+---
+
+**Phase 8: Failure/recovery test per lane**
+
+Under producer load, stop one broker and observe recovery:
+
+    ssh rockyadmin@BROKER3_IP "sudo systemctl stop kafka"
+    date | tee -a ~/perf-results/LANE/failure-recovery.txt
+    /opt/kafka/bin/kafka-topics.sh --bootstrap-server BROKER1_IP:9092 --describe --topic perf-topic | tee -a ~/perf-results/LANE/failure-recovery.txt
+    sleep 120
+    ssh rockyadmin@BROKER3_IP "sudo systemctl start kafka"
+    sleep 120
+    /opt/kafka/bin/kafka-topics.sh --bootstrap-server BROKER1_IP:9092 --describe --topic perf-topic | tee -a ~/perf-results/LANE/failure-recovery.txt
+
+---
+
+**Phase 9: Collect and compare**
+
+Package results:
+
+    cd ~/perf-results
+    tar -czf kafka-ab-results-$(date +%Y%m%d-%H%M).tgz lane-v5-centos lane-v6-rocky
+    ls -lh kafka-ab-results-*.tgz
+
+---
+
+**Execution result template (fill during run)**
+
+| Category | Metric | Lane V5 CentOS 7.9 (D8s_v5) | Lane V6 Rocky 9.7 (D8ls_v6) | Notes |
+|---|---|---:|---:|---|
+| Deployment | Terraform apply status |  |  | Success/Fail + duration |
+| Deployment | Kafka brokers healthy count |  |  | out of 3 |
+| Deployment | Prometheus ready |  |  | yes/no |
+| Deployment | Grafana API health |  |  | yes/no |
+| Baseline CPU | sysbench events/sec |  |  | |
+| Baseline Disk | fio seq write MB/s |  |  | /data/kafka |
+| Baseline Disk | fio latency p99 ms |  |  | |
+| Baseline Network | iperf3 Gbps |  |  | |
+| Producer 100B none | Throughput MB/s |  |  | |
+| Producer 100B none | Avg latency ms |  |  | |
+| Producer 100B none | p99 latency ms |  |  | |
+| Producer 1KB snappy | Throughput MB/s |  |  | |
+| Producer 1KB snappy | Avg latency ms |  |  | |
+| Producer 1KB snappy | p99 latency ms |  |  | |
+| Producer 10KB lz4 | Throughput MB/s |  |  | |
+| Producer 10KB lz4 | Avg latency ms |  |  | |
+| Producer 10KB lz4 | p99 latency ms |  |  | |
+| Consumer | Throughput MB/s |  |  | |
+| Resilience | Leader recovery time sec |  |  | broker stop/start test |
+| Resilience | Under-replicated duration sec |  |  | |
+| Efficiency | CPU% at peak producer load |  |  | from monitoring |
+| Efficiency | Disk util% at peak load |  |  | from monitoring |
+
+---
+
+If you want, I can generate a second version of this runbook with your exact real RG/VNet/NSG IDs and broker IP placeholders pre-filled from your current environment so you can execute with minimal editing.

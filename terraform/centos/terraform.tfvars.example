@@ -1,0 +1,14 @@
+# Copy to terraform.tfvars and update values as needed.
+subscription_id = "8d6bd1eb-ae31-4f2c-856a-0f8e47115c4b"
+
+location            = "westus"
+resource_group_name = "kafka-perf-v5-centos"
+vnet_name           = "rds-prod-vnet"
+subnet_name         = "rds-prod-subnet"
+nsg_name            = "rds-prod-nsg"
+
+vnet_address_space    = ["10.20.0.0/16"]
+subnet_address_prefixes = ["10.20.1.0/24"]
+
+allowed_cidr     = "10.20.0.0/16"
+control_ssh_port = 6666
