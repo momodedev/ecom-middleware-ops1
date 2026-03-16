@@ -17,7 +17,7 @@ locals {
     ? var.repository_base_dir
     : "/home/${var.control_node_user}/${var.repository_name}"
   )
-  ansible_working_dir = "${local.computed_repository_base}/ansible"
+  ansible_working_dir = "${local.computed_repository_base}/ansible_centos"
 
   # Ansible-reachable IPs:
   #   is_public=true  → public IPs  (new VNet not peered to control node VNet)
@@ -28,25 +28,6 @@ locals {
     : azurerm_linux_virtual_machine.brokers[idx].private_ip_address
   ]
 
-  # Inventory lines for deploy_kafka_playbook.yaml
-  # ansible_host drives SSH; private_ip drives kafka_advertised_host inside the role
-  broker_inventory_lines = [for idx in range(var.kafka_instance_count) :
-    format(
-      "kafka-broker-%d ansible_host=%s private_ip=%s kafka_node_id=%d",
-      idx,
-      local.ansible_host_ips[idx],
-      azurerm_linux_virtual_machine.brokers[idx].private_ip_address,
-      idx + 1
-    )
-  ]
-
-  # Inventory lines for deploy_monitoring_playbook.yml [kafka_broker] group
-  broker_monitoring_lines = [for idx in range(var.kafka_instance_count) :
-    format(
-      "kafka-broker-%d ansible_host=%s ansible_user=%s",
-      idx, local.ansible_host_ips[idx], var.kafka_admin_username
-    )
-  ]
 }
 
 # ── Optional public IPs (required when new VNet is not peered to control VNet) ──——
@@ -203,66 +184,8 @@ resource "null_resource" "ansible" {
       echo "[centos-lane] Waiting 240s for CentOS 7.9 VMs to complete cloud-init..."
       sleep 240
 
-      # SSH readiness check (inline – skips validate_vms_ready.sh Rocky 9.7 OS gate)
-      echo "[centos-lane] Verifying SSH connectivity to all brokers..."
-      for ip in ${join(" ", local.ansible_host_ips)}; do
-        connected=0
-        for i in $$(seq 1 20); do
-          if timeout 15 ssh -o StrictHostKeyChecking=no -o ConnectTimeout=10 \
-               -o BatchMode=yes -i ~/.ssh/id_rsa \
-               ${var.kafka_admin_username}@$${ip} "echo SSH_OK" 2>/dev/null; then
-            echo "  [OK] SSH: $${ip}"
-            connected=1
-            break
-          fi
-          echo "  Attempt $${i}/20 – $${ip} not ready, waiting 15s..."
-          sleep 15
-        done
-        [ $${connected} -eq 1 ] || { echo "ERROR: SSH timeout on $${ip}"; exit 1; }
-      done
-
-      mkdir -p inventory
-
-      # Generate Kafka inventory – ansible_host=<public_ip>, private_ip=<private_ip>
-      # The Kafka role derives kafka_advertised_host from ansible_host first,
-      # so Kafka will advertise the public IP for client connections.
-      cat > inventory/kafka_hosts << 'INVEOF'
-[kafka]
-${join("\n", local.broker_inventory_lines)}
-
-[all:vars]
-ansible_user=${var.kafka_admin_username}
-ansible_ssh_private_key_file=~/.ssh/id_rsa
-ansible_python_interpreter=/usr/bin/python3
-INVEOF
-
-      # Generate monitoring inventory (management_node=localhost, brokers=kafka_broker)
-      cat > inventory/inventory.ini << 'INIEOF'
-[management_node]
-localhost ansible_connection=local ansible_user=${var.control_node_user}
-
-[kafka_broker]
-${join("\n", local.broker_monitoring_lines)}
-INIEOF
-
-      echo "[centos-lane] Generated Kafka inventory:"
-      cat inventory/kafka_hosts
-
-      # Deploy Kafka 2.3.2 on CentOS 7.9 brokers (with one retry)
-      echo "[centos-lane] Deploying Kafka 2.3.2..."
-      ANSIBLE_HOST_KEY_CHECKING=False ansible-playbook \
-        -i inventory/kafka_hosts \
-        playbooks/deploy_kafka_playbook.yaml || {
-        echo "[centos-lane] First attempt failed, retrying after 30s..."
-        sleep 30
-        ANSIBLE_HOST_KEY_CHECKING=False ansible-playbook \
-          -i inventory/kafka_hosts \
-          playbooks/deploy_kafka_playbook.yaml
-      }
-
-      # Deploy Prometheus + Grafana monitoring stack
-      echo "[centos-lane] Deploying monitoring stack..."
-      ansible-playbook -i inventory/inventory.ini playbooks/deploy_monitoring_playbook.yml
+      # Hardened CentOS lane deployment from dedicated ansible_centos workspace
+      bash scripts/deploy_centos_cluster.sh ${azurerm_resource_group.this.name} ${var.kafka_admin_username} ${var.control_node_user}
 
       echo "[centos-lane] ✓ CentOS 7.9 / V5 Kafka deployment complete."
     EOT
