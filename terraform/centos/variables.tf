@@ -80,7 +80,25 @@ variable "kafka_admin_username" {
 variable "kafka_data_disk_size_gb" {
   description = "Size in GiB of the Premium SSD data disk attached to each Kafka broker."
   type        = number
-  default     = 256
+  default     = 1024
+}
+
+variable "use_premium_v2_disks" {
+  description = "Use Premium SSD v2 disks with custom IOPS/throughput for broker data disks."
+  type        = bool
+  default     = true
+}
+
+variable "kafka_data_disk_iops" {
+  description = "Provisioned IOPS for Premium SSD v2 data disk. Used when use_premium_v2_disks=true."
+  type        = number
+  default     = 3000
+}
+
+variable "kafka_data_disk_throughput_mbps" {
+  description = "Provisioned throughput (MB/s) for Premium SSD v2 data disk. Used when use_premium_v2_disks=true."
+  type        = number
+  default     = 125
 }
 
 variable "is_public" {

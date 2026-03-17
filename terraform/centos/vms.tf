@@ -143,9 +143,13 @@ resource "azurerm_managed_disk" "data_disk" {
   name                 = "kafka-centos-data-${count.index}"
   location             = azurerm_resource_group.this.location
   resource_group_name  = azurerm_resource_group.this.name
-  storage_account_type = "Premium_LRS"
+  storage_account_type = var.use_premium_v2_disks ? "PremiumV2_LRS" : "Premium_LRS"
   create_option        = "Empty"
   disk_size_gb         = var.kafka_data_disk_size_gb
+
+  # Premium SSD v2 performance knobs (ignored when Premium_LRS is used)
+  disk_iops_read_write = var.use_premium_v2_disks ? var.kafka_data_disk_iops : null
+  disk_mbps_read_write = var.use_premium_v2_disks ? var.kafka_data_disk_throughput_mbps : null
 
   lifecycle {
     ignore_changes = [tags]
