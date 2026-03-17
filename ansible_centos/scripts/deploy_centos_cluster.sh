@@ -177,7 +177,9 @@ ANSIBLE_HOST_KEY_CHECKING=False ansible-playbook -i "$BASE_DIR/inventory/kafka_h
   -e "kafka_version=${KAFKA_SELECTED_VERSION}" \
   -e "kafka_scala_version=${KAFKA_SCALA_VERSION}" \
   -e "kafka_archive_path=/tmp/${KAFKA_ARCHIVE_NAME}" \
-  -e "kafka_download_timeout=120"
+  -e "kafka_download_timeout=120" \
+  -e "kafka_data_dir=/data/kafka/kafka-logs" \
+  -e "kafka_log_dirs=/data/kafka/kafka-logs"
 ANSIBLE_HOST_KEY_CHECKING=False ansible-playbook -i "$BASE_DIR/inventory/inventory.ini" "$BASE_DIR/playbooks/deploy_monitoring_playbook.yml"
 
 echo "CentOS Kafka + monitoring deployment completed."
