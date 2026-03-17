@@ -35,8 +35,8 @@ locals {
 resource "azurerm_public_ip" "brokers" {
   count               = var.is_public ? var.kafka_instance_count : 0
   name                = "kafka-centos-pip-${count.index}"
-  location            = azurerm_resource_group.this.location
-  resource_group_name = azurerm_resource_group.this.name
+  location            = local.foundation_rg_location
+  resource_group_name = local.foundation_rg_name
   allocation_method   = "Static"
   sku                 = "Standard"
 
@@ -50,12 +50,12 @@ resource "azurerm_public_ip" "brokers" {
 resource "azurerm_network_interface" "brokers" {
   count               = var.kafka_instance_count
   name                = "kafka-centos-nic-${count.index}"
-  location            = azurerm_resource_group.this.location
-  resource_group_name = azurerm_resource_group.this.name
+  location            = local.foundation_rg_location
+  resource_group_name = local.foundation_rg_name
 
   ip_configuration {
     name                          = "kafka-centos-ipconfig"
-    subnet_id                     = azurerm_subnet.this.id
+    subnet_id                     = local.foundation_subnet_id
     private_ip_address_allocation = "Dynamic"
     public_ip_address_id          = var.is_public ? azurerm_public_ip.brokers[count.index].id : null
   }
@@ -68,7 +68,7 @@ resource "azurerm_network_interface" "brokers" {
 resource "azurerm_network_interface_security_group_association" "brokers" {
   count                     = var.kafka_instance_count
   network_interface_id      = azurerm_network_interface.brokers[count.index].id
-  network_security_group_id = azurerm_network_security_group.this.id
+  network_security_group_id = local.foundation_nsg_id
 }
 
 # ── CentOS 7.9 Kafka broker VMs ─────────────────────────────────────────────
@@ -76,8 +76,8 @@ resource "azurerm_network_interface_security_group_association" "brokers" {
 resource "azurerm_linux_virtual_machine" "brokers" {
   count               = var.kafka_instance_count
   name                = "kafka-broker-${count.index}"
-  location            = azurerm_resource_group.this.location
-  resource_group_name = azurerm_resource_group.this.name
+  location            = local.foundation_rg_location
+  resource_group_name = local.foundation_rg_name
   size                = var.kafka_vm_size
 
   network_interface_ids = [azurerm_network_interface.brokers[count.index].id]
@@ -143,8 +143,8 @@ resource "azurerm_managed_disk" "data_disk" {
   # Azure does not allow in-place migration from Premium_LRS to PremiumV2_LRS.
   # Encode disk family in the name so Terraform performs create+replace cleanly.
   name                 = var.use_premium_v2_disks ? "kafka-centos-data-v2-${count.index}" : "kafka-centos-data-${count.index}"
-  location             = azurerm_resource_group.this.location
-  resource_group_name  = azurerm_resource_group.this.name
+  location             = local.foundation_rg_location
+  resource_group_name  = local.foundation_rg_name
   storage_account_type = var.use_premium_v2_disks ? "PremiumV2_LRS" : "Premium_LRS"
   create_option        = "Empty"
   disk_size_gb         = var.kafka_data_disk_size_gb
@@ -192,7 +192,7 @@ resource "null_resource" "ansible" {
       sleep 240
 
       # Hardened CentOS lane deployment from dedicated ansible_centos workspace
-      bash scripts/deploy_centos_cluster.sh ${azurerm_resource_group.this.name} ${var.kafka_admin_username} ${var.control_node_user}
+      bash scripts/deploy_centos_cluster.sh ${local.foundation_rg_name} ${var.kafka_admin_username} ${var.control_node_user}
 
       echo "[centos-lane] ✓ CentOS 7.9 / V5 Kafka deployment complete."
     EOT

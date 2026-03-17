@@ -1,21 +1,21 @@
 output "resource_group_name" {
   description = "Created resource group name."
-  value       = azurerm_resource_group.this.name
+  value       = local.foundation_rg_name
 }
 
 output "vnet_name" {
   description = "Created virtual network name."
-  value       = azurerm_virtual_network.this.name
+  value       = local.foundation_vnet_name
 }
 
 output "subnet_id" {
   description = "Created subnet ID."
-  value       = azurerm_subnet.this.id
+  value       = local.foundation_subnet_id
 }
 
 output "nsg_id" {
   description = "Created NSG ID."
-  value       = azurerm_network_security_group.this.id
+  value       = local.foundation_nsg_id
 }
 
 output "kafka_broker_public_ips" {

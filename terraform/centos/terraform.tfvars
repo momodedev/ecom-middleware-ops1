@@ -7,6 +7,8 @@ resource_group_name = "kafka-perf-v5-centos"
 vnet_name           = "rds-prod-vnet"
 subnet_name         = "rds-prod-subnet"
 nsg_name            = "rds-prod-nsg"
+use_existing_foundation = true
+manage_network_security_rules = false
 
 vnet_address_space      = ["10.20.0.0/16"]
 subnet_address_prefixes = ["10.20.1.0/24"]

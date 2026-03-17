@@ -156,3 +156,15 @@ variable "manage_subnet_nsg_association" {
   type        = bool
   default     = false
 }
+
+variable "use_existing_foundation" {
+  description = "Use existing Resource Group, VNet, Subnet, and NSG by name instead of creating them."
+  type        = bool
+  default     = true
+}
+
+variable "manage_network_security_rules" {
+  description = "Create/manage NSG security rules in the selected NSG. Set false to avoid any NSG rule changes."
+  type        = bool
+  default     = false
+}
