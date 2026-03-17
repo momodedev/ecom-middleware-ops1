@@ -158,6 +158,7 @@ resource "azurerm_network_security_rule" "zookeeper_2181" {
 }
 
 resource "azurerm_subnet_network_security_group_association" "this" {
+  count                     = var.manage_subnet_nsg_association ? 1 : 0
   subnet_id                 = azurerm_subnet.this.id
   network_security_group_id = azurerm_network_security_group.this.id
 }

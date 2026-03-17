@@ -132,3 +132,9 @@ variable "enable_ansible_provisioner" {
   type        = bool
   default     = false
 }
+
+variable "manage_subnet_nsg_association" {
+  description = "Whether Terraform should create/manage the subnet-to-NSG association. Set false when association already exists outside Terraform state."
+  type        = bool
+  default     = false
+}
