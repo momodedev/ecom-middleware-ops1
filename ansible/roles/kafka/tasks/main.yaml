@@ -511,13 +511,35 @@
   when: server_properties is changed or kafka_service_unit is changed or jmx_exporter_jar is changed or jmx_exporter_config is changed or zookeeper_service_unit is changed
 
 - name: Wait for Kafka client listener
-  wait_for:
-    host: "{{ kafka_advertised_host }}"
-    port: "{{ kafka_client_port }}"
-    delay: 5
-    timeout: 60
-    state: started
-    msg: "Kafka client listener not available on {{ inventory_hostname }}"
+  block:
+    - name: Wait for Kafka client listener port on localhost
+      wait_for:
+        host: 127.0.0.1
+        port: "{{ kafka_client_port }}"
+        delay: 5
+        timeout: 180
+        state: started
+        msg: "Kafka client listener not available on {{ inventory_hostname }}"
+  rescue:
+    - name: Show Kafka service diagnostics
+      shell: |
+        set -o pipefail
+        systemctl status kafka --no-pager -l || true
+        echo "----- kafka journal tail -----"
+        journalctl -u kafka -n 120 --no-pager || true
+      args:
+        executable: /bin/bash
+      register: kafka_service_diagnostics
+      changed_when: false
+      become: yes
+
+    - name: Print Kafka service diagnostics
+      debug:
+        var: kafka_service_diagnostics.stdout_lines
+
+    - name: Fail Kafka listener check with diagnostics
+      fail:
+        msg: "Kafka client listener not available on {{ inventory_hostname }}. See diagnostics above."
 
 - name: Wait for JMX exporter endpoint
   wait_for:

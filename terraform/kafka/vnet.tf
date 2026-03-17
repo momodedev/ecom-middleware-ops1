@@ -230,7 +230,7 @@ resource "azurerm_subnet_network_security_group_association" "example" {
 resource "azurerm_network_security_rule" "existing_nsg_zookeeper_client" {
   count                       = var.kafka_nsg_id != "" ? 1 : 0
   name                        = "kafka-module-zookeeper-client"
-  priority                    = 3100
+  priority                    = 3130
   direction                   = "Inbound"
   access                      = "Allow"
   protocol                    = "Tcp"
@@ -245,7 +245,7 @@ resource "azurerm_network_security_rule" "existing_nsg_zookeeper_client" {
 resource "azurerm_network_security_rule" "existing_nsg_zookeeper_peer" {
   count                       = var.kafka_nsg_id != "" ? 1 : 0
   name                        = "kafka-module-zookeeper-peer"
-  priority                    = 3110
+  priority                    = 3140
   direction                   = "Inbound"
   access                      = "Allow"
   protocol                    = "Tcp"
@@ -260,7 +260,7 @@ resource "azurerm_network_security_rule" "existing_nsg_zookeeper_peer" {
 resource "azurerm_network_security_rule" "existing_nsg_zookeeper_election" {
   count                       = var.kafka_nsg_id != "" ? 1 : 0
   name                        = "kafka-module-zookeeper-election"
-  priority                    = 3120
+  priority                    = 3150
   direction                   = "Inbound"
   access                      = "Allow"
   protocol                    = "Tcp"
