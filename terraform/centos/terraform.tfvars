@@ -19,6 +19,8 @@ control_ssh_port = 6666
 # ── Kafka broker VMs (CentOS 7.9, Azure V5, OpenJDK 11) ─────────────────────
 kafka_instance_count    = 3
 kafka_vm_size           = "Standard_D8s_v5"
+enable_availability_zones = true
+kafka_vm_zone           = "1"
 kafka_admin_username    = "centosmadmin"
 kafka_data_disk_size_gb = 1024
 use_premium_v2_disks = true

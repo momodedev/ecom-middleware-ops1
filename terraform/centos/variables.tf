@@ -71,6 +71,18 @@ variable "kafka_vm_size" {
   default     = "Standard_D8s_v5"
 }
 
+variable "enable_availability_zones" {
+  description = "Enable Availability Zones for broker VMs and disks. Required for Premium SSD v2 data disks."
+  type        = bool
+  default     = true
+}
+
+variable "kafka_vm_zone" {
+  description = "Availability Zone for broker VMs/disks (for example: 1, 2, or 3)."
+  type        = string
+  default     = "1"
+}
+
 variable "kafka_admin_username" {
   description = "Admin username for CentOS broker VMs (also used as Ansible remote_user)."
   type        = string

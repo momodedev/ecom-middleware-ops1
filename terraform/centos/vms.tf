@@ -79,6 +79,7 @@ resource "azurerm_linux_virtual_machine" "brokers" {
   location            = local.foundation_rg_location
   resource_group_name = local.foundation_rg_name
   size                = var.kafka_vm_size
+  zone                = var.enable_availability_zones && var.kafka_vm_zone != "" ? var.kafka_vm_zone : null
 
   network_interface_ids = [azurerm_network_interface.brokers[count.index].id]
 
@@ -148,6 +149,7 @@ resource "azurerm_managed_disk" "data_disk" {
   storage_account_type = var.use_premium_v2_disks ? "PremiumV2_LRS" : "Premium_LRS"
   create_option        = "Empty"
   disk_size_gb         = var.kafka_data_disk_size_gb
+  zone                 = (var.use_premium_v2_disks && var.enable_availability_zones && var.kafka_vm_zone != "") ? var.kafka_vm_zone : null
 
   # Premium SSD v2 performance knobs (ignored when Premium_LRS is used)
   disk_iops_read_write = var.use_premium_v2_disks ? var.kafka_data_disk_iops : null
