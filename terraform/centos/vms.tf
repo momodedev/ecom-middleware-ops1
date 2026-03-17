@@ -140,7 +140,9 @@ resource "azurerm_linux_virtual_machine" "brokers" {
 
 resource "azurerm_managed_disk" "data_disk" {
   count                = var.kafka_instance_count
-  name                 = "kafka-centos-data-${count.index}"
+  # Azure does not allow in-place migration from Premium_LRS to PremiumV2_LRS.
+  # Encode disk family in the name so Terraform performs create+replace cleanly.
+  name                 = var.use_premium_v2_disks ? "kafka-centos-data-v2-${count.index}" : "kafka-centos-data-${count.index}"
   location             = azurerm_resource_group.this.location
   resource_group_name  = azurerm_resource_group.this.name
   storage_account_type = var.use_premium_v2_disks ? "PremiumV2_LRS" : "Premium_LRS"
