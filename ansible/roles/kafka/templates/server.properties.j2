@@ -3,7 +3,11 @@
 broker.id={{ kafka_broker_id }}
 
 # ZooKeeper connection
-zookeeper.connect={% for host in groups['kafka'] | sort %}{{ hostvars[host].private_ip | default(hostvars[host].ansible_host | default(host)) }}:{{ kafka_zookeeper_port }}{% if not loop.last %},{% endif %}{% endfor %} 
+{% set ns = namespace(zk_hosts=[]) %}
+{% for host in groups['kafka'] | sort %}
+{% set _ = ns.zk_hosts.append((hostvars[host].private_ip | default(hostvars[host].ansible_host | default(host))) ~ ':' ~ (kafka_zookeeper_port | string)) %}
+{% endfor %}
+zookeeper.connect={{ ns.zk_hosts | join(',') }}
 zookeeper.connection.timeout.ms=18000
 
 # Network Listeners
