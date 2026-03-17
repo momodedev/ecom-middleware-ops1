@@ -125,6 +125,7 @@ resource "azurerm_linux_virtual_machine" "brokers" {
   lifecycle {
     ignore_changes = [
       bypass_platform_safety_checks_on_user_schedule_enabled,
+      custom_data,
       tags,
     ]
   }
