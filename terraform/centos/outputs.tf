@@ -27,3 +27,18 @@ output "kafka_broker_private_ips" {
   description = "Private IP addresses of CentOS Kafka brokers."
   value       = azurerm_linux_virtual_machine.brokers[*].private_ip_address
 }
+
+output "kafka_data_disk_sku" {
+  description = "Configured data disk SKU for CentOS brokers."
+  value       = var.use_premium_v2_disks ? "PremiumV2_LRS" : "Premium_LRS"
+}
+
+output "kafka_data_disk_performance" {
+  description = "Configured data disk performance settings for CentOS brokers."
+  value = {
+    size_gib       = var.kafka_data_disk_size_gb
+    iops           = var.use_premium_v2_disks ? var.kafka_data_disk_iops : null
+    throughput_mbs = var.use_premium_v2_disks ? var.kafka_data_disk_throughput_mbps : null
+    zone           = (var.enable_availability_zones && var.kafka_vm_zone != "") ? var.kafka_vm_zone : null
+  }
+}

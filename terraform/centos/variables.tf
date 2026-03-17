@@ -81,6 +81,11 @@ variable "kafka_vm_zone" {
   description = "Availability Zone for broker VMs/disks (for example: 1, 2, or 3)."
   type        = string
   default     = "1"
+
+  validation {
+    condition     = var.kafka_vm_zone == "" || can(regex("^(1|2|3)$", var.kafka_vm_zone))
+    error_message = "kafka_vm_zone must be one of: 1, 2, 3, or empty string when zones are disabled."
+  }
 }
 
 variable "kafka_admin_username" {
@@ -99,6 +104,11 @@ variable "use_premium_v2_disks" {
   description = "Use Premium SSD v2 disks with custom IOPS/throughput for broker data disks."
   type        = bool
   default     = true
+
+  validation {
+    condition     = !var.use_premium_v2_disks || (var.enable_availability_zones && var.kafka_vm_zone != "")
+    error_message = "Premium SSD v2 requires zonal deployment. Set enable_availability_zones=true and kafka_vm_zone to 1, 2, or 3."
+  }
 }
 
 variable "kafka_data_disk_iops" {

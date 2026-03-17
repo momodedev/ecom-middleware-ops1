@@ -155,8 +155,23 @@ resource "azurerm_managed_disk" "data_disk" {
   disk_iops_read_write = var.use_premium_v2_disks ? var.kafka_data_disk_iops : null
   disk_mbps_read_write = var.use_premium_v2_disks ? var.kafka_data_disk_throughput_mbps : null
 
+  tags = {
+    Environment = "production"
+    Component   = "kafka"
+    Index       = count.index
+    DiskType    = var.use_premium_v2_disks ? "PremiumV2" : "Premium"
+  }
+
   lifecycle {
-    ignore_changes = [tags]
+    ignore_changes = [
+      tags,
+      zone
+    ]
+
+    precondition {
+      condition     = !var.use_premium_v2_disks || (var.enable_availability_zones && var.kafka_vm_zone != "")
+      error_message = "Premium SSD v2 can only be attached to zonal VMs. Set enable_availability_zones=true and kafka_vm_zone to 1, 2, or 3."
+    }
   }
 }
 
