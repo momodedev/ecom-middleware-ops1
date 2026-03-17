@@ -1,7 +1,7 @@
 #cloud-config
 # Cloud-init bootstrap for CentOS 7.9 Kafka broker VMs.
 # Uses yum (not dnf) – CentOS 7 ships with yum, not dnf.
-# Java 11 (OpenJDK) is installed here; Ansible installs Kafka 2.3.2 afterwards.
+# Java 11 (OpenJDK) is installed here; Ansible installs Kafka 2.3.1 afterwards.
 
 package_update: true
 package_upgrade: false

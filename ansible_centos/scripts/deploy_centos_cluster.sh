@@ -13,7 +13,7 @@ BROKER_USER="$2"
 CONTROL_USER="${3:-azureadmin}"
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 BASE_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
-KAFKA_VERSION="2.3.2"
+KAFKA_VERSION="2.3.1"
 KAFKA_SCALA_VERSION="2.12"
 KAFKA_CACHE_DIR="$BASE_DIR/cache"
 KAFKA_HTTP_PORT="18080"
@@ -37,7 +37,7 @@ if [[ ! -s "$KAFKA_CACHE_PATH" ]]; then
   # ?action=download tells Apache closer.lua to issue a real 302 redirect to an
   # actual mirror binary instead of returning an HTML chooser page.
   download_sources=(
-    "${KAFKA_232_URL:-}"
+    "${KAFKA_231_URL:-${KAFKA_232_URL:-}}"
     "https://www.apache.org/dyn/closer.lua/kafka/${KAFKA_SELECTED_VERSION}/${KAFKA_ARCHIVE_NAME}?action=download"
     "https://archive.apache.org/dist/kafka/${KAFKA_SELECTED_VERSION}/${KAFKA_ARCHIVE_NAME}"
     "https://downloads.apache.org/kafka/${KAFKA_SELECTED_VERSION}/${KAFKA_ARCHIVE_NAME}"
@@ -69,10 +69,10 @@ if [[ ! -s "$KAFKA_CACHE_PATH" ]]; then
 fi
 
 if [[ ! -s "$KAFKA_CACHE_PATH" ]]; then
-  echo "ERROR: Kafka 2.3.2 archive unavailable from configured sources." >&2
+  echo "ERROR: Kafka 2.3.1 archive unavailable from configured sources." >&2
   echo "       Required file: $KAFKA_ARCHIVE_NAME" >&2
   echo "       Place it manually at: $KAFKA_CACHE_PATH" >&2
-  echo "       Or set a direct URL: export KAFKA_232_URL='https://<your-repo>/kafka_2.12-2.3.2.tgz'" >&2
+  echo "       Or set a direct URL: export KAFKA_231_URL='https://<your-repo>/kafka_2.12-2.3.1.tgz'" >&2
   exit 1
 fi
 

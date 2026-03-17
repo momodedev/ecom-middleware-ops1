@@ -142,7 +142,7 @@ resource "azurerm_network_security_rule" "kafka_client_9092" {
   network_security_group_name = azurerm_network_security_group.this.name
 }
 
-# ZooKeeper client port – used by Kafka 2.3.2 (ZooKeeper-mode, pre-KRaft)
+# ZooKeeper client port – used by Kafka 2.3.1 (ZooKeeper-mode, pre-KRaft)
 resource "azurerm_network_security_rule" "zookeeper_2181" {
   name                        = "allow-zookeeper-2181"
   priority                    = 170

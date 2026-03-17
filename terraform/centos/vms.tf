@@ -1,5 +1,5 @@
 # ============================================================
-# CentOS 7.9 + Azure V5  –  Kafka 2.3.2 broker VMs
+# CentOS 7.9 + Azure V5  –  Kafka 2.3.1 broker VMs
 #
 # NOTE: Apply this module FROM the control node (Rocky Linux).
 #       The null_resource local-exec provisioner needs the
@@ -159,7 +159,7 @@ resource "azurerm_virtual_machine_data_disk_attachment" "data_disk" {
   caching            = "None"
 }
 
-# ── Ansible provisioner – deploy Kafka 2.3.2 + monitoring on CentOS brokers ─
+# ── Ansible provisioner – deploy Kafka 2.3.1 + monitoring on CentOS brokers ─
 # IMPORTANT: terraform apply must be run FROM the control node so that
 #            local.ansible_working_dir and the Ansible venv exist.
 
