@@ -25,6 +25,15 @@ fi
 
 bash "$SCRIPT_DIR/generate_inventory_centos.sh" "$RESOURCE_GROUP" "$BROKER_USER" "$CONTROL_USER"
 
+# Refresh SSH host keys for broker IPs because Terraform may recreate VMs.
+if [[ -f "$BASE_DIR/inventory/kafka_hosts" ]]; then
+  while IFS= read -r host_ip; do
+    [[ -z "$host_ip" ]] && continue
+    ssh-keygen -R "$host_ip" >/dev/null 2>&1 || true
+    ssh-keyscan -H "$host_ip" >> "$HOME/.ssh/known_hosts" 2>/dev/null || true
+  done < <(awk '{for (i=1; i<=NF; i++) if ($i ~ /^ansible_host=/) {split($i, a, "="); print a[2]}}' "$BASE_DIR/inventory/kafka_hosts" | sort -u)
+fi
+
 mkdir -p "$KAFKA_CACHE_DIR"
 
 KAFKA_SELECTED_VERSION="$KAFKA_VERSION"
@@ -169,6 +178,6 @@ ANSIBLE_HOST_KEY_CHECKING=False ansible-playbook -i "$BASE_DIR/inventory/kafka_h
   -e "kafka_scala_version=${KAFKA_SCALA_VERSION}" \
   -e "kafka_archive_path=/tmp/${KAFKA_ARCHIVE_NAME}" \
   -e "kafka_download_timeout=120"
-ansible-playbook -i "$BASE_DIR/inventory/inventory.ini" "$BASE_DIR/playbooks/deploy_monitoring_playbook.yml"
+ANSIBLE_HOST_KEY_CHECKING=False ansible-playbook -i "$BASE_DIR/inventory/inventory.ini" "$BASE_DIR/playbooks/deploy_monitoring_playbook.yml"
 
 echo "CentOS Kafka + monitoring deployment completed."
