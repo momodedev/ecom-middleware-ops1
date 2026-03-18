@@ -32,7 +32,7 @@ locals {
 resource "azurerm_network_security_rule" "grafana_3000" {
   count                       = var.manage_network_security_rules ? 1 : 0
   name                        = "3000"
-  priority                    = 100
+  priority                    = 3200
   direction                   = "Inbound"
   access                      = "Allow"
   protocol                    = "*"
@@ -47,7 +47,7 @@ resource "azurerm_network_security_rule" "grafana_3000" {
 resource "azurerm_network_security_rule" "prometheus_9090" {
   count                       = var.manage_network_security_rules ? 1 : 0
   name                        = "9090"
-  priority                    = 110
+  priority                    = 3210
   direction                   = "Inbound"
   access                      = "Allow"
   protocol                    = "*"
