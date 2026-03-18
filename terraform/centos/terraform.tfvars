@@ -26,7 +26,7 @@ kafka_data_disk_throughput_mbps = 125
 is_public               = true   # New VNet has no peering to control node – public IPs required
 ssh_public_key_path     = "~/.ssh/id_rsa.pub"
 ansible_run_id          = ""
-enable_ansible_provisioner = false # Keep false for Windows applies; enable only on Linux control node (/bin/bash required)
+enable_ansible_provisioner = true  # Run only when applying from Linux control node (/bin/bash required)
 
 # ── Control node / Ansible paths ─────────────────────────────────────────────
 repository_name  = "ecom-middleware-ops1"
