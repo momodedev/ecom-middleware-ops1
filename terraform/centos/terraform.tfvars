@@ -3,10 +3,10 @@ subscription_id = "8d6bd1eb-ae31-4f2c-856a-0f8e47115c4b"
 
 # ── Networking (already deployed, must match existing state) ─────────────────
 location            = "australiaeast"
-resource_group_name = "kafka-perf-v5-centos"
-vnet_name           = "rds-prod-vnet"
-subnet_name         = "rds-prod-subnet"
-nsg_name            = "rds-prod-nsg"
+resource_group_name = "control-au-rg"
+vnet_name           = "control-au-vnet"
+subnet_name         = "control-au-subnet"
+nsg_name            = "control-au-nsg"
 manage_network_security_rules = true
 manage_subnet_nsg_association = true
 
@@ -26,7 +26,7 @@ kafka_data_disk_throughput_mbps = 125
 is_public               = true   # New VNet has no peering to control node – public IPs required
 ssh_public_key_path     = "~/.ssh/id_rsa.pub"
 ansible_run_id          = ""
-enable_ansible_provisioner = true  # Run only when applying from Linux control node (/bin/bash required)
+enable_ansible_provisioner = false # Keep false for Windows applies; enable only on Linux control node (/bin/bash required)
 
 # ── Control node / Ansible paths ─────────────────────────────────────────────
 repository_name  = "ecom-middleware-ops1"
