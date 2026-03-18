@@ -16,31 +16,19 @@ variable "resource_group_name" {
 }
 
 variable "vnet_name" {
-  description = "Virtual network name."
+  description = "Existing virtual network name."
   type        = string
   default     = "kafka-perf-v5-centos-vnet"
 }
 
-variable "vnet_address_space" {
-  description = "Address space for the virtual network."
-  type        = list(string)
-  default     = ["10.20.0.0/16"]
-}
-
 variable "subnet_name" {
-  description = "Subnet name inside the VNet."
+  description = "Existing subnet name inside the VNet."
   type        = string
   default     = "kafka-perf-v5-centos-subnet"
 }
 
-variable "subnet_address_prefixes" {
-  description = "Address prefixes for the subnet."
-  type        = list(string)
-  default     = ["10.20.1.0/24"]
-}
-
 variable "nsg_name" {
-  description = "Network Security Group name for Kafka test traffic."
+  description = "Existing Network Security Group name for Kafka test traffic."
   type        = string
   default     = "kafka-perf-v5-centos-nsg"
 }
@@ -48,7 +36,7 @@ variable "nsg_name" {
 variable "allowed_cidr" {
   description = "CIDR allowed to access Kafka-related inbound ports."
   type        = string
-  default     = "10.20.0.0/16"
+  default     = "10.0.0.0/16"
 }
 
 variable "control_ssh_port" {
@@ -174,19 +162,13 @@ variable "enable_ansible_provisioner" {
 }
 
 variable "manage_subnet_nsg_association" {
-  description = "Whether Terraform should create/manage the subnet-to-NSG association. Set false when association already exists outside Terraform state."
-  type        = bool
-  default     = false
-}
-
-variable "use_existing_foundation" {
-  description = "Use existing Resource Group, VNet, Subnet, and NSG by name instead of creating them."
+  description = "Whether Terraform should create/manage subnet-to-NSG association when missing on the existing subnet."
   type        = bool
   default     = true
 }
 
 variable "manage_network_security_rules" {
-  description = "Create/manage NSG security rules in the selected NSG. Set false to avoid any NSG rule changes."
+  description = "Create/manage NSG security rules in the existing NSG."
   type        = bool
-  default     = false
+  default     = true
 }

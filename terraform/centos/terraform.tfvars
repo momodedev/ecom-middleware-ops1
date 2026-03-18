@@ -2,18 +2,15 @@
 subscription_id = "8d6bd1eb-ae31-4f2c-856a-0f8e47115c4b"
 
 # ── Networking (already deployed, must match existing state) ─────────────────
-location            = "westus3"
-resource_group_name = "kafka-perf-v5-centos"
+location            = "westus"
+resource_group_name = "rds-prod"
 vnet_name           = "rds-prod-vnet"
 subnet_name         = "rds-prod-subnet"
 nsg_name            = "rds-prod-nsg"
-use_existing_foundation = true
-manage_network_security_rules = false
+manage_network_security_rules = true
+manage_subnet_nsg_association = true
 
-vnet_address_space      = ["10.20.0.0/16"]
-subnet_address_prefixes = ["10.20.1.0/24"]
-
-allowed_cidr     = "10.20.0.0/16"
+allowed_cidr     = "10.0.0.0/16"
 control_ssh_port = 6666
 
 # ── Kafka broker VMs (CentOS 7.9, Azure V5, OpenJDK 11) ─────────────────────

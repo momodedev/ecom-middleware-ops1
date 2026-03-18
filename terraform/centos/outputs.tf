@@ -1,20 +1,20 @@
 output "resource_group_name" {
-  description = "Created resource group name."
+  description = "Selected existing resource group name."
   value       = local.foundation_rg_name
 }
 
 output "vnet_name" {
-  description = "Created virtual network name."
+  description = "Selected existing virtual network name."
   value       = local.foundation_vnet_name
 }
 
 output "subnet_id" {
-  description = "Created subnet ID."
+  description = "Selected existing subnet ID."
   value       = local.foundation_subnet_id
 }
 
 output "nsg_id" {
-  description = "Created NSG ID."
+  description = "Selected existing NSG ID."
   value       = local.foundation_nsg_id
 }
 
