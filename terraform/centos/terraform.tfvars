@@ -3,7 +3,7 @@ subscription_id = "8d6bd1eb-ae31-4f2c-856a-0f8e47115c4b"
 
 # ── Networking (already deployed, must match existing state) ─────────────────
 location            = "westus"
-resource_group_name = "rds-prod"
+resource_group_name = "kafka-perf-v5-centos"
 vnet_name           = "rds-prod-vnet"
 subnet_name         = "rds-prod-subnet"
 nsg_name            = "rds-prod-nsg"
