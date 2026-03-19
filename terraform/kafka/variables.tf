@@ -47,7 +47,7 @@ variable "kafka_instance_count" {
 
 variable "kafka_vm_size" {
   type        = string
-  default     = "Standard_D8ds_v6"  # Change to Dsv6 series
+  default     = "Standard_D8s_v6"  # Use D8s v6 per deployment requirement
   description = "Azure compute SKU for Kafka brokers (x64, Premium SSD v2 capable in most regions)."
 }
 
