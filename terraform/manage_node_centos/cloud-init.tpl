@@ -23,6 +23,17 @@ packages:
   - gnupg
 
 runcmd:
+  # Ignore Azure SR-IOV NIC drivers that are transparently bonded to synthetic NICs
+  - mkdir -p /etc/NetworkManager/conf.d
+  - |
+    cat > /etc/NetworkManager/conf.d/99-azure-unmanaged-devices.conf <<'EOF'
+    # Ignore SR-IOV interface on Azure, since it is transparently bonded
+    # to the synthetic interface
+    [keyfile]
+    unmanaged-devices=driver:mana;driver:mlx4_core;driver:mlx5_core
+    EOF
+  - systemctl restart NetworkManager || true
+
   # Configure SSH daemon to use custom port for control node access
   - sed -i -E 's/^#?Port[[:space:]]+[0-9]+/Port ${control_ssh_port}/' /etc/ssh/sshd_config
   - grep -q '^Port ${control_ssh_port}$' /etc/ssh/sshd_config || echo 'Port ${control_ssh_port}' >> /etc/ssh/sshd_config

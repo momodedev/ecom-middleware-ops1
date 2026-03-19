@@ -59,6 +59,17 @@ packages:
   - net-tools
 
 runcmd:
+  # Ignore Azure SR-IOV NIC drivers that are transparently bonded to synthetic NICs
+  - mkdir -p /etc/NetworkManager/conf.d
+  - |
+    cat > /etc/NetworkManager/conf.d/99-azure-unmanaged-devices.conf <<'EOF'
+    # Ignore SR-IOV interface on Azure, since it is transparently bonded
+    # to the synthetic interface
+    [keyfile]
+    unmanaged-devices=driver:mana;driver:mlx4_core;driver:mlx5_core
+    EOF
+  - systemctl restart NetworkManager || true
+
   - yum makecache || true
 
   # Create standard Kafka directories
