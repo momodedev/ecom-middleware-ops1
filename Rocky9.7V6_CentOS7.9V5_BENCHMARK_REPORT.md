@@ -13,9 +13,10 @@ The Kafka 2.3.1 cluster has been successfully deployed on Azure Rocky Linux 9.7 
 
 ### Key Highlights
 - **3-broker cluster** fully operational with replication factor 2
-- **Peak throughput:** 1.66 GB/sec (with LZ4 compression)
-- **Sustained throughput:** 329-349 MB/sec
-- **Low latency:** 4.87ms average (LZ4 compressed, optimal conditions)
+- **Peak throughput:** 1.62 GB/sec (with LZ4 compression)
+- **Sustained throughput (acks=1, unlimited):** 279.02 MB/sec
+- **Fixed-rate stability:** up to 250K msgs/sec with 22.67ms avg latency
+- **Low latency:** 7.39ms average (LZ4 compressed, optimized batching)
 - **Fault tolerance:** Multi-broker replication, ZooKeeper coordination active
 - **Monitoring:** Prometheus + Grafana stack deployed and operational
 
@@ -26,10 +27,10 @@ The Kafka cluster on Azure CentOS v7.9 V5 VMs was also deployed successfully wit
 - **3-broker cluster** deployed and healthy (private IPs: 172.17.1.6, 172.17.1.5, 172.17.1.7)
 - **Region / Resource Group:** australiaeast / control-au-rg
 - **Deployment completion:** Terraform + Ansible completed successfully in 7 minutes 51 seconds
-- **Peak throughput (LZ4, acks=1):** ~1.38 GB/sec (1,417,434 records/sec, best of two runs)
-- **Sustained throughput (acks=1, unlimited, warm JVM):** 311.70 MB/sec (319,183 records/sec)
-- **Durability baseline (acks=all):** 141.90 MB/sec (145,306 records/sec, avg latency 197.73ms)
-- **Consumer fetch throughput:** 812.77 MB/sec peak fetch (231.56 MB/sec sustained, 1M-record test)
+- **Peak throughput (LZ4, acks=1):** 1.38 GB/sec (1,411,433 records/sec)
+- **Sustained throughput (acks=1, unlimited):** 334.90 MB/sec (342,936 records/sec)
+- **Durability baseline (acks=all):** 139.95 MB/sec (143,308 records/sec, avg latency 199.32ms)
+- **Consumer fetch throughput:** 816.82 MB/sec peak fetch (229.92 MB/sec sustained, 1M-record test)
 - **Storage:** PremiumV2_LRS 1024 GiB @ 3000 IOPS / 125 MB/s throughput
 - **Monitoring stack:** Prometheus + Grafana + exporters deployed successfully
 - **SSH access note:** broker login user is `centosmadmin` (not `rockyadmin`)
@@ -107,25 +108,25 @@ Validates cluster behavior at various target message rates with 1KB records and 
 
 | Target Rate | Achieved Rate | Avg Latency | p95 Latency | p99 Latency | Status |
 |------------|---------------|-------------|------------|------------|--------|
-| 50,000 msgs/sec | 50,000 | 30.3ms | - | 155ms | ✅ Stable |
-| 100,000 msgs/sec | 99,880 | 7.51ms | 72ms | 122ms | ✅ Stable |
-| 150,000 msgs/sec | 149,655 | 21.96ms | 155ms | 179ms | ✅ Stable |
-| 200,000 msgs/sec | 199,600 | 35.93ms | 156ms | 187ms | ✅ Stable |
-| 250,000 msgs/sec | 249,252 | 60ms | 157ms | 181ms | ✅ Stable |
+| 50,000 msgs/sec | 49,980 | 1.07ms | 1ms | 32ms | ✅ Stable |
+| 100,000 msgs/sec | 99,880 | 3.82ms | 28ms | 79ms | ✅ Stable |
+| 150,000 msgs/sec | 149,790 | 8.97ms | 85ms | 117ms | ✅ Stable |
+| 200,000 msgs/sec | 199,680 | 16.58ms | 115ms | 134ms | ✅ Stable |
+| 250,000 msgs/sec | 249,252 | 22.67ms | 114ms | 135ms | ✅ Stable |
 
-**Key Insight:** The cluster maintains excellent latency characteristics even at 250K msgs/sec. P99 latencies remain under 200ms across all load levels.
+**Key Insight:** Cluster A maintains strong latency characteristics through 250K msgs/sec. P99 remains below 140ms at all tested fixed rates.
 
 ### CentOS v7.9 V5 Addendum
 Validates cluster behavior at target message rates with 1KB records and acks=1. *(australiaeast, control-au-rg, Standard_D8s_v5)*
 
 | Target Rate | Achieved Rate | Avg Latency | p50 | p95 | p99 | p99.9 | Status |
 |------------|---------------|-------------|-----|-----|-----|-------|--------|
-| 50,000 msgs/sec | 49,980 rec/s (48.81 MB/s) | 1.36ms | 0ms | 1ms | 43ms | 57ms | ✅ Stable |
-| 100,000 msgs/sec | 99,880 rec/s (97.54 MB/s) | 5.93ms | 1ms | 56ms | 104ms | 129ms | ✅ Stable |
-| 150,000 msgs/sec | 149,655 rec/s (146.15 MB/s) | 14.59ms | 1ms | 104ms | 149ms | 177ms | ✅ Stable |
-| 200,000 msgs/sec | 199,680 rec/s (195.00 MB/s) | 34.32ms | 1ms | 167ms | 193ms | 202ms | ✅ Stable |
+| 50,000 msgs/sec | 49,980 rec/s (48.81 MB/s) | 2.79ms | 0ms | 2ms | 57ms | 239ms | ✅ Stable |
+| 100,000 msgs/sec | 99,860 rec/s (97.52 MB/s) | 7.25ms | 1ms | 73ms | 115ms | 132ms | ✅ Stable |
+| 150,000 msgs/sec | 149,700 rec/s (146.19 MB/s) | 19.45ms | 1ms | 128ms | 203ms | 215ms | ✅ Stable |
+| 200,000 msgs/sec | 199,521 rec/s (194.84 MB/s) | 35.46ms | 1ms | 170ms | 216ms | 249ms | ✅ Stable |
 
-**CentOS Insight:** All four fixed-rate targets achieved with high accuracy. Average latency improved substantially vs prior runs — notably at 100K (5.93ms avg vs prior 10.05ms) and 150K (14.59ms vs 23.09ms), reflecting warm-JVM and australiaeast network conditions. P50 remains at or below 1ms across all rates; P99 rises predictably under load, peaking at 193ms at 200K msgs/sec.
+**CentOS Insight:** All fixed-rate targets were achieved accurately. P50 remains at 1ms or below, while tail latency at 50K and 200K indicates higher jitter than Rocky in this run.
 
 ---
 
@@ -134,11 +135,12 @@ Tests with 2 million 1KB records comparing LZ4 vs GZIP compression.
 
 | Algorithm | Throughput | Network I/O | Avg Latency | CPU Impact | Recommendation |
 |-----------|-----------|------------|-------------|-----------|-----------------|
-| **LZ4** | 1,699,235 records/sec (1.66 GB/sec) | Low | 4.87ms | Low | **Use for real-time workloads** |
-| **GZIP** | 218,245 records/sec (213 MB/sec) | Lower | 11.91ms | High | Use for archival/batch processing |
-| **None** | 337,723 records/sec (330 MB/sec) | Highest | 84.03ms | Minimal | Baseline reference |
+| **LZ4** | 1,657,001 records/sec (1.62 GB/sec) | Low | 7.39ms | Low | **Use for real-time workloads** |
+| **GZIP** | 218,317 records/sec (213.20 MB/sec) | Lower | 15.24ms | High | Use for archival/batch processing |
+| **None (acks=1)** | 285,714 records/sec (279.02 MB/sec) | Highest | 99.15ms | Minimal | Baseline reference |
+| **None (acks=all)** | 158,278 records/sec (154.57 MB/sec) | Highest | 180.05ms | Minimal | Durability reference |
 
-**Performance Ratio:** LZ4 achieves **7.8x higher throughput** than GZIP while using minimal CPU.  
+**Performance Ratio:** LZ4 achieves **7.6x higher throughput** than GZIP while using minimal CPU.  
 **Recommendation for Production:** Deploy with LZ4 compression for optimal performance/network balance.
 
 ### CentOS v7.9 V5 Addendum
@@ -146,16 +148,14 @@ Tests with 2 million 1KB records comparing LZ4 vs GZIP compression (two runs eac
 
 | Algorithm | Throughput (best run) | Avg Latency | p50 | p95 | p99 | p99.9 | CPU Impact | Recommendation |
 |-----------|----------------------|-------------|-----|-----|-----|-------|-----------|----------------|
-| **LZ4** | 1,417,434 rec/s (1,384.21 MB/sec) | 6.99ms | 6ms | 14ms | 17ms | 22ms | Low | **Preferred for high throughput** |
-| **GZIP** | 186,760 rec/s (~182.4 MB/sec) | 12.4ms | 12ms | 22ms | 23ms | 24ms | High | Use for storage-sensitive workloads |
-| **None (acks=1)** | 319,183 rec/s (311.70 MB/sec) | 86.12ms | 2ms | 316ms | 355ms | 375ms | Minimal | Baseline / throughput reference |
-| **None (acks=all)** | 145,306 rec/s (141.90 MB/sec) | 197.73ms | 29ms | 583ms | 626ms | 630ms | Minimal | Strong durability mode |
+| **LZ4** | 1,411,433 rec/s (1,378.35 MB/sec) | 7.09ms | 6ms | 14ms | 18ms | 23ms | Low | **Preferred for high throughput** |
+| **GZIP** | 188,058 rec/s (183.65 MB/sec) | 14.90ms | 13ms | 22ms | 91ms | 355ms | High | Use for storage-sensitive workloads |
+| **None (acks=1)** | 342,936 rec/s (334.90 MB/sec) | 79.07ms | 7ms | 244ms | 262ms | 271ms | Minimal | Baseline / throughput reference |
+| **None (acks=all)** | 143,308 rec/s (139.95 MB/sec) | 199.32ms | 52ms | 587ms | 619ms | 632ms | Minimal | Strong durability mode |
 
-*Run detail — LZ4: Run 1: 1,282,051 rec/s, 8.87ms avg; Run 2: 1,417,434 rec/s, 6.99ms avg.*  
-*Run detail — GZIP: Run 1: 186,828 rec/s, 12.51ms avg; Run 2: 186,689 rec/s, 12.35ms avg — highly consistent.*  
-*Run detail — None acks=1: Cold run: 214,961 rec/s, 132.48ms avg (P99 603ms); Warm run: 319,183 rec/s, 86.12ms avg (P99 355ms).*
+*Run detail — GZIP intermediate windows: 181,722 rec/s then 193,599 rec/s before final aggregate 188,058 rec/s, showing burst-level variability under CPU load.*
 
-**CentOS Performance Ratio:** LZ4 achieves **7.6×** the throughput of GZIP and **4.4×** the no-compression warm baseline (owing to large-batch config: `batch.size=131072`, `linger.ms=20`). The cold-vs-warm spread for no-compression (214K → 319K rec/s) highlights the importance of JVM warmup in single-run benchmarks.
+**CentOS Performance Ratio:** LZ4 achieves **7.5×** the throughput of GZIP and **4.1×** the no-compression baseline, confirming the strong impact of compression + batching (`batch.size=131072`, `linger.ms=20`).
 
 ---
 
@@ -182,24 +182,24 @@ Three producers simultaneously sending 1M records each with acks=1.
 
 | Metric | Per-Producer | Combined |
 |--------|------------|----------|
-| **Throughput** | 147,000 msgs/sec | **441,000 msgs/sec** |
-| **Network I/O** | ~143 MB/sec | ~429 MB/sec |
-| **Avg Latency** | 193-197ms | - |
-| **Max Latency** | 1,761-1,774ms | - |
+| **Throughput** | 192,160 to 202,799 msgs/sec | **~591,422 msgs/sec** |
+| **Network I/O** | 187.66 to 198.05 MB/sec | **~577.57 MB/sec** |
+| **Avg Latency** | 139.29-148.40ms | - |
+| **Max Latency** | 769-1,208ms | - |
 
-**Key Finding:** Cluster scales linearly with concurrent producers. No bottlenecks detected up to 3 concurrent streams. P99 latencies remain acceptable (1.6-1.7sec under heavy contention).
+**Key Finding:** Cluster A scales strongly under three concurrent producers. One transient malformed output line appeared during concurrent execution; final per-producer summaries were consistent and used for analysis.
 
 ### CentOS v7.9 V5 Addendum
 Three producers simultaneously sent 1M records each with acks=1.
 
 | Metric | Per-Producer | Combined |
 |--------|------------|----------|
-| **Throughput** | ~130,959 to ~132,679 msgs/sec | **~395,459 msgs/sec** |
-| **Network I/O** | ~127.89 to ~129.57 MB/sec | ~386.19 MB/sec |
-| **Avg Latency** | 215.96-219.05ms | - |
-| **Max Latency** | 2,468-2,633ms | - |
+| **Throughput** | 155,039 to 158,153 msgs/sec | **~469,246 msgs/sec** |
+| **Network I/O** | 151.41 to 154.45 MB/sec | **~458.26 MB/sec** |
+| **Avg Latency** | 177.19-181.50ms | - |
+| **Max Latency** | 1,341-1,676ms | - |
 
-**CentOS Finding:** Multi-producer scaling remains strong and consistent, with higher tail latency under concurrent pressure compared with single-producer mode.
+**CentOS Finding:** Concurrent throughput improved materially versus prior run, while p95-p99.9 latency remains elevated under contention.
 
 ---
 
@@ -208,29 +208,29 @@ Consuming 3M pre-existing records with optimal fetch sizing.
 
 | Metric | Result |
 |--------|--------|
-| **Sustained Throughput** | 539,912 records/sec ≈ **579.98 MB/sec** |
-| **Peak Fetch Rate** | 1,197,245 records/sec |
-| **Rebalance Time** | 3.051 seconds |
-| **Actual Fetch Window** | 2.506 seconds |
-| **Efficiency** | 99.2% |
+| **Sustained Throughput** | 529,568 records/sec ≈ **517.16 MB/sec** |
+| **Peak Fetch Rate** | 1,143,729 records/sec ≈ **1,116.92 MB/sec** |
+| **Rebalance Time** | 3.042 seconds |
+| **Actual Fetch Window** | 2.623 seconds |
+| **Efficiency** | 100.0% (3,000,000 records consumed) |
 
-**Interpretation:** Consumer group behavior is healthy. Rebalance times are within acceptable range. The cluster can sustain 580 MB/sec of data egress.
+**Interpretation:** Consumer behavior is healthy and highly efficient, sustaining over 500 MB/sec with low rebalance overhead.
 
 ### CentOS v7.9 V5 Addendum
-Consumer benchmark with 1M messages, `--fetch-size 1048576` (1 MB), single thread. Two runs. *(australiaeast, control-au-rg, Standard_D8s_v5)*
+Consumer benchmark with 1M messages, `--fetch-size 1048576` (1 MB), single thread. *(australiaeast, control-au-rg, Standard_D8s_v5)*
 
-| Metric | Run 1 | Run 2 |
-|--------|-------|-------|
-| **Records Consumed** | 1,000,022 | 1,000,400 |
-| **Sustained Throughput** | 218,250 msgs/sec ≈ 213.13 MB/sec | 237,117 msgs/sec ≈ 231.56 MB/sec |
-| **Fetch Throughput** | 650,632 msgs/sec ≈ 635.38 MB/sec | 832,279 msgs/sec ≈ 812.77 MB/sec |
-| **Rebalance Time** | 3,045ms | 3,017ms |
-| **Fetch Window** | 1,537ms | 1,202ms |
-| **Data Consumed** | 976.58 MB | 976.95 MB |
+| Metric | Result |
+|--------|--------|
+| **Records Consumed** | 1,000,362 |
+| **Sustained Throughput** | 235,435 msgs/sec ≈ 229.92 MB/sec |
+| **Fetch Throughput** | 836,423 msgs/sec ≈ 816.82 MB/sec |
+| **Rebalance Time** | 3,053ms |
+| **Fetch Window** | 1,196ms |
+| **Data Consumed** | 976.92 MB |
 
-**CentOS Interpretation:** Consumer group rebalance overhead (~3 seconds) is consistent across runs. Fetch throughput improved significantly from Run 1 to Run 2 (635 → 813 MB/sec), demonstrating JVM warmup and OS page-cache priming effects. Peak fetch rate of 812.77 MB/sec approaches in-memory read speeds and substantially exceeds the PremiumV2_LRS provisioned write limit (125 MB/s), confirming reads are served from page cache. Sustained end-to-end consume throughput of 231 MB/sec is healthy for in-cluster operation.
+**CentOS Interpretation:** Consumer results are stable with predictable ~3s rebalance and high fetch throughput enabled by OS page cache. End-to-end sustained throughput remains ~230 MB/sec.
 
-> **Note:** This test consumed 1M messages vs 3M in the Rocky v9.7 V6 baseline; fetch throughput is the more meaningful cross-platform metric.
+> **Note:** Rocky test consumed 3M records while CentOS consumed 1M, so direct sustained-throughput comparison should be interpreted with that difference in mind.
 
 ---
 
@@ -330,7 +330,7 @@ VM Generation: Azure V5 series
 ### 1. **Compression Strategy**
 | Scenario | Recommendation |
 |----------|-----------------|
-| Real-time analytics | LZ4 (7.8x better than GZIP) |
+| Real-time analytics | LZ4 (about 7.6x better than GZIP) |
 | Long-term archival | GZIP (smaller network footprint) |
 | Internal datacenter | None (rely on network speed) |
 
@@ -338,8 +338,8 @@ VM Generation: Azure V5 series
 ```
 Bootstrap Servers: 10.0.1.6:9092,10.0.1.4:9092,10.0.1.5:9092
 Recommended Producer Settings:
-  - acks=1 (for 300-350K msgs/sec throughput)
-  - acks=all (for critical data, expect 67K msgs/sec + 434ms latency)
+  - acks=1 (for ~280K msgs/sec unlimited baseline in latest run)
+  - acks=all (for critical data, expect ~158K msgs/sec + ~180ms average latency)
   - compression.type=lz4
   - batch.size=131072 (128KB batches)
   - linger.ms=20 (allow 20ms batching)
@@ -361,9 +361,9 @@ Recommended Consumer Settings:
 | Load Level | Capacity | Bottleneck |
 |-----------|----------|-----------|
 | < 100K msgs/sec | ✅ Comfortable | None detected |
-| 100-300K msgs/sec | ✅ Recommended zone | CPU at ~40-60% |
-| 300-500K msgs/sec | ⚠️ Acceptable short-term | CPU at 70-80%, disk I/O linear |
-| > 500K msgs/sec | ❌ Requires additional brokers | Network saturation likely |
+| 100-250K msgs/sec | ✅ Recommended zone | Stable low-to-moderate latency |
+| 250-600K msgs/sec aggregate | ⚠️ Acceptable under concurrency | Tail latency increases |
+| > 600K msgs/sec aggregate | ❌ Requires additional brokers | Producer contention and queueing likely |
 
 ### 5. **Backup & Recovery**
 - Data stored at `/data/kafka/kafka-logs` on NVMe
@@ -410,9 +410,9 @@ Recommended Producer Settings:
 The Kafka 2.3.1 cluster is **production-ready** with excellent performance characteristics:
 
 ✅ **Reliability:** 3-broker replication with ZooKeeper coordination  
-✅ **Performance:** 300+ MB/sec sustained, 1.66 GB/sec peak  
-✅ **Latency:** Sub-100ms p99 at normal loads  
-✅ **Scalability:** Linear scaling to 3+ concurrent producers  
+✅ **Performance:** 279 MB/sec sustained (acks=1 unlimited), 1.62 GB/sec peak (LZ4)  
+✅ **Latency:** Sub-25ms avg up to 250K msgs/sec fixed-rate load  
+✅ **Scalability:** ~591K msgs/sec total across 3 concurrent producers  
 ✅ **Storage:** NVMe-backed with optimal I/O scheduling  
 
 ### Recommended Next Steps
@@ -425,11 +425,11 @@ The Kafka 2.3.1 cluster is **production-ready** with excellent performance chara
 ### CentOS v7.9 V5 Addendum Conclusion
 The CentOS v7.9 V5 cluster (australiaeast, control-au-rg, Standard_D8s_v5, PremiumV2_LRS) is production-ready and passed full deployment + benchmark validation. Key outcomes from the latest run:
 
-- **LZ4 peak:** 1,417,434 rec/s (1,384 MB/sec) — improved from prior 1,355,013 rec/s
-- **acks=1 warm baseline:** 319,183 rec/s (311.70 MB/sec) — significantly improved from prior 213.69 MB/sec
-- **acks=all durability:** 145,306 rec/s (141.90 MB/sec) — strong ISR replication throughput
-- **Fixed-rate latency:** Improved across all targets; 100K and 200K avg latency now lower than Rocky v9.7 V6 in these respective runs
-- **Consumer fetch:** 812.77 MB/sec peak fetch throughput (warm run, 1M-record test)
+- **LZ4 peak:** 1,411,433 rec/s (1,378.35 MB/sec)
+- **acks=1 baseline:** 342,936 rec/s (334.90 MB/sec)
+- **acks=all durability:** 143,308 rec/s (139.95 MB/sec)
+- **Concurrent 3-producer total:** ~469,246 rec/s (~458.26 MB/sec)
+- **Consumer fetch:** 816.82 MB/sec peak fetch throughput (1M-record test)
 
 Deployment, Ansible provisioning, ZooKeeper setup, Kafka KRaft-compatible broker configuration, and full monitoring stack (Prometheus + Grafana + JMX + kafka-exporter + node-exporter) all completed without errors in under 8 minutes end-to-end.
 
@@ -440,32 +440,33 @@ Deployment, Ansible provisioning, ZooKeeper setup, Kafka KRaft-compatible broker
 ### Benchmark Summary (Same Script Family)
 | Test Item | Rocky v9.7 V6 | CentOS v7.9 V5 | Relative Result |
 |-----------|---------------|----------------|-----------------|
-| Fixed 100K target | 99,880 rec/s, 7.51ms avg | 99,880 rec/s, 5.93ms avg | Throughput equal; CentOS lower avg latency in latest run |
-| Fixed 200K target | 199,600 rec/s, 35.93ms avg | 199,680 rec/s, 34.32ms avg | Nearly identical; CentOS marginally lower latency |
-| Producer (acks=1, unlimited) | 337,724 rec/s (329.81 MB/s), 84.03ms | 319,183 rec/s (311.70 MB/s), 86.12ms | Rocky ~5.8% higher throughput; latency comparable |
-| Producer (acks=all) | 67,336 rec/s (65.76 MB/s), 434.03ms | 145,306 rec/s (141.90 MB/s), 197.73ms | CentOS substantially higher; different environments |
-| LZ4 compression | 1,699,235 rec/s (1659.41 MB/s), 4.87ms | 1,417,434 rec/s (1384.21 MB/s), 6.99ms | Rocky ~19.9% higher throughput |
-| GZIP compression | 218,245 rec/s (213.13 MB/s), 11.91ms | 186,760 rec/s (182.38 MB/s), 12.4ms | Rocky ~16.9% higher throughput |
-| 3-producer concurrent total | ~441,000 rec/s | ~395,459 rec/s (prior run) | Rocky ~11.5% higher aggregate |
-| Consumer fetch throughput | 539,913 rec/s (579.98 MB/s) [3M msgs] | 832,279 rec/s (812.77 MB/s) [1M msgs, warm] | Different sample sizes; CentOS fetch rate higher in warm state |
+| Fixed 100K target | 99,880 rec/s, 3.82ms avg | 99,860 rec/s, 7.25ms avg | Throughput equal; Rocky lower latency |
+| Fixed 200K target | 199,680 rec/s, 16.58ms avg | 199,521 rec/s, 35.46ms avg | Rocky materially lower latency |
+| Producer (acks=1, unlimited) | 285,714 rec/s (279.02 MB/s), 99.15ms | 342,936 rec/s (334.90 MB/s), 79.07ms | CentOS ~20% higher throughput |
+| Producer (acks=all) | 158,278 rec/s (154.57 MB/s), 180.05ms | 143,308 rec/s (139.95 MB/s), 199.32ms | Rocky ~10% higher throughput |
+| LZ4 compression | 1,657,001 rec/s (1618.16 MB/s), 7.39ms | 1,411,433 rec/s (1378.35 MB/s), 7.09ms | Rocky ~17.4% higher throughput |
+| GZIP compression | 218,317 rec/s (213.20 MB/s), 15.24ms | 188,058 rec/s (183.65 MB/s), 14.90ms | Rocky ~16.1% higher throughput |
+| 3-producer concurrent total | ~591,422 rec/s | ~469,246 rec/s | Rocky ~26.0% higher aggregate |
+| Consumer sustained throughput | 529,568 rec/s (517.16 MB/s) [3M msgs] | 235,435 rec/s (229.92 MB/s) [1M msgs] | Rocky higher sustained consume rate |
+| Consumer fetch throughput | 1,143,729 rec/s (1116.92 MB/s) | 836,423 rec/s (816.82 MB/s) | Rocky higher fetch rate |
 
 ### Overall Interpretation
-- **Rocky v9.7 V6** leads on peak LZ4 and uncompressed throughput (~20% and ~6% higher respectively) and maintains an excellent overall latency profile.
-- **CentOS v7.9 V5** (australiaeast, PremiumV2_LRS) closed the latency gap significantly in fixed-rate tests — average latency at 100K and 200K targets is now **lower on CentOS** than Rocky v6 in these runs, possibly reflecting regional network topology, warmer JVM state, or test conditions.
-- **CentOS acks=all** throughput (145,306 rec/s) is substantially higher than Rocky (67,336 rec/s) in these respective runs; note the two tests were conducted in different environments and at different times, so the comparison is indicative rather than definitive.
-- **Consumer fetch performance** on CentOS reached 812 MB/sec in the warm run, exceeding the Rocky baseline (580 MB/sec), though sample sizes differ (1M vs 3M records).
+- **Rocky v9.7 V6** now leads in fixed-rate latency, LZ4/GZIP throughput, concurrent producer aggregate throughput, and consumer sustained/fetch throughput.
+- **CentOS v7.9 V5** leads in this cycle for uncompressed single-producer `acks=1` baseline throughput, indicating efficient fast-path performance in the current australiaeast deployment.
+- **Rocky `acks=all`** outperformed CentOS in this run set (154.57 MB/s vs 139.95 MB/s), suggesting stronger durability-path throughput under identical payload size and producer settings.
+- One malformed output line appeared in Rocky concurrent test stdout; final summarized producer lines were internally consistent and used for aggregate calculations.
 - Both platforms passed deployment health checks, broker startup, monitoring deployment, and sustained performance validation.
 
 ### Friendly Recommendation
-- Choose **Rocky v9.7 V6** when maximum LZ4/uncompressed peak throughput is the top priority (~20% higher than CentOS V5).
-- Choose **CentOS v7.9 V5** when environment compatibility favors CentOS; the V5 cluster (australiaeast) demonstrated competitive or superior fixed-rate latency and strong acks=all durability throughput in the latest benchmark run.
+- Choose **Rocky v9.7 V6** when the target workload is high concurrency, compressed throughput (LZ4/GZIP), or high-rate consumer throughput.
+- Choose **CentOS v7.9 V5** when your dominant path is uncompressed single-producer throughput and you need CentOS ecosystem compatibility.
 - Both environments now target australiaeast for consistent cross-regional comparability.
 - Keep running the same benchmark scripts periodically to track performance drift after OS, kernel, JVM, Azure VM-size, or region changes.
 
 ---
 
 **Report Generated:** March 17, 2026  
-**CentOS v7.9 V5 Addendum Updated:** March 18, 2026 (australiaeast deployment, full benchmark re-run)  
+**Benchmark Data Refreshed:** March 18, 2026 (Cluster A Rocky + Cluster B CentOS full retest)  
 **Deployment Version:** Kafka 2.3.1 on Rocky Linux 9.7 / CentOS 7.9  
-**Test Duration:** 45 minutes comprehensive performance validation (Rocky); ~30 minutes (CentOS)  
+**Test Duration:** ~40 minutes (Rocky retest); ~35 minutes (CentOS retest)  
 **Status:** ✅ READY FOR PRODUCTION
